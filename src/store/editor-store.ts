@@ -13,6 +13,7 @@ import { DEFAULT_ADJUSTMENTS } from '@/lib/image-processing';
 import type { PaperSettings } from '@/lib/templates';
 import { DEFAULT_PAPER_SETTINGS } from '@/lib/templates';
 import type { LayoutResult } from '@/lib/layout-engine';
+import { type ColorCalibrationSettings, DEFAULT_COLOR_CALIBRATION } from '@/lib/color-management';
 
 export type EditorMode = 'photo' | 'id-card';
 export type EditorStep = 'upload' | 'crop' | 'layout' | 'preview';
@@ -21,6 +22,8 @@ export interface EditorImage extends ImageInfo {
   thumbnailUrl: string;
   cropData?: CropData;
   croppedImageUrl?: string;
+  isPdf?: boolean;
+  pdfPageNumber?: number;
 }
 
 export interface IDCardState {
@@ -71,6 +74,9 @@ interface EditorState {
   // Processed output
   croppedImageUrl: string | null;
   
+  // Color Calibration & CMYK Soft-Proof
+  colorCalibration: ColorCalibrationSettings;
+
   // Undo/Redo
   undoStack: UndoEntry[];
   redoStack: UndoEntry[];
@@ -84,6 +90,8 @@ interface EditorState {
   duplicateImage: (index: number) => void;
   setCropData: (data: CropData | null) => void;
   setAdjustments: (adjustments: Partial<AdjustmentSettings>) => void;
+  setColorCalibration: (settings: Partial<ColorCalibrationSettings>) => void;
+  resetColorCalibration: () => void;
   setRotation: (rotation: number) => void;
   setSelectedTemplate: (id: string | null, type: 'photo' | 'id-card') => void;
   setPaperSettings: (settings: Partial<PaperSettings>) => void;
@@ -121,12 +129,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     showCuttingMarks: true,
   },
   croppedImageUrl: null,
+  colorCalibration: { ...DEFAULT_COLOR_CALIBRATION },
   undoStack: [],
   redoStack: [],
 
   // Actions
   setMode: (mode) => set({ mode }),
   setStep: (step) => set({ step }),
+  setColorCalibration: (settings) => set((state) => ({
+    colorCalibration: { ...state.colorCalibration, ...settings },
+  })),
+  resetColorCalibration: () => set({ colorCalibration: { ...DEFAULT_COLOR_CALIBRATION } }),
   
   addImages: (images) => set((state) => ({
     images: [...state.images, ...images],
@@ -252,5 +265,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pvcActiveSide: 'front',
       showCuttingMarks: true,
     },
+    colorCalibration: { ...DEFAULT_COLOR_CALIBRATION },
   }),
 }));

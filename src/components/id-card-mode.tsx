@@ -27,6 +27,8 @@ import {
 import { calculateIDCardLayout } from '@/lib/layout-engine';
 import { generateIDCardPrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
 import { loadImage, loadImageElement, generateThumbnail, isSupportedImage } from '@/lib/image-processing';
+import { isPdfFile, loadPdfPages, pdfPageToEditorImage } from '@/lib/pdf-processor';
+import { applyPrintColorCalibration } from '@/lib/color-management';
 import { mmToPx, DEFAULT_DPI } from '@/lib/units';
 
 export function IDCardMode() {
@@ -35,6 +37,7 @@ export function IDCardMode() {
     selectedTemplateId, setSelectedTemplate,
     paperSettings, setPaperSettings,
     copies, setCopies,
+    colorCalibration,
   } = useEditorStore();
 
   const cropperRef = useRef<ReactCropperElement>(null);
@@ -84,12 +87,48 @@ export function IDCardMode() {
   const activeImage = activeSide === 'front' ? idCardState.frontImage : idCardState.backImage;
   const paper = getPaperSize(paperSettings.paperId) || PAPER_SIZES[0];
 
-  // Handle uploading front or back file
+  // Handle uploading front or back file (supports image and PDF)
   const handleUploadSide = async (file: File, side: 'front' | 'back') => {
-    if (!isSupportedImage(file)) {
-      alert('Please upload a JPG, PNG, or WEBP image.');
+    if (!isSupportedImage(file) && !isPdfFile(file)) {
+      alert('Please upload a JPG, PNG, WEBP image or a PDF document.');
       return;
     }
+
+    if (isPdfFile(file)) {
+      try {
+        const pages = await loadPdfPages(file, { dpi: 300 });
+        if (pages.length === 0) return;
+
+        if (pages.length >= 2) {
+          // Auto assign Page 1 to Front and Page 2 to Back (standard for e-Aadhaar / DL PDF)
+          const frontImg = pdfPageToEditorImage(pages[0], file);
+          frontImg.isPdf = true;
+          frontImg.pdfPageNumber = 1;
+
+          const backImg = pdfPageToEditorImage(pages[1], file);
+          backImg.isPdf = true;
+          backImg.pdfPageNumber = 2;
+
+          setIDCardState({ frontImage: frontImg, backImage: backImg });
+          setActiveSide('front');
+        } else {
+          const editorImg = pdfPageToEditorImage(pages[0], file);
+          editorImg.isPdf = true;
+          editorImg.pdfPageNumber = 1;
+          if (side === 'front') {
+            setIDCardState({ frontImage: editorImg });
+            setActiveSide('front');
+          } else {
+            setIDCardState({ backImage: editorImg });
+            setActiveSide('back');
+          }
+        }
+      } catch (err) {
+        alert('Failed to load PDF: ' + (err instanceof Error ? err.message : String(err)));
+      }
+      return;
+    }
+
     const info = await loadImage(file);
     const imgEl = await loadImageElement(info.objectUrl);
     const thumbnailUrl = generateThumbnail(imgEl, 200);
@@ -127,9 +166,9 @@ export function IDCardMode() {
     if (activeAdj.saturation !== 0) filters.push(`saturate(${1 + activeAdj.saturation / 100})`);
     if (activeAdj.grayscale) filters.push('grayscale(1)');
 
-    if (filters.length > 0) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      if (filters.length > 0) {
         const temp = document.createElement('canvas');
         temp.width = canvas.width;
         temp.height = canvas.height;
@@ -140,6 +179,17 @@ export function IDCardMode() {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(temp, 0, 0);
         }
+      }
+
+      // Apply Print Color Calibration (Shadow Lift & CMYK Simulation)
+      if (
+        colorCalibration.printGamma !== 1.0 ||
+        colorCalibration.cyanRedBalance !== 0 ||
+        colorCalibration.magentaGreenBalance !== 0 ||
+        colorCalibration.yellowBlueBalance !== 0 ||
+        colorCalibration.cmykSoftProof
+      ) {
+        applyPrintColorCalibration(ctx, canvas.width, canvas.height, colorCalibration);
       }
     }
 
@@ -329,19 +379,21 @@ export function IDCardMode() {
               <input
                 ref={frontInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
                 className="hidden"
                 onChange={(e) => {
                   if (e.target.files?.[0]) handleUploadSide(e.target.files[0], 'front');
+                  e.target.value = '';
                 }}
               />
               <input
                 ref={backInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
                 className="hidden"
                 onChange={(e) => {
                   if (e.target.files?.[0]) handleUploadSide(e.target.files[0], 'back');
+                  e.target.value = '';
                 }}
               />
               <Button
@@ -351,7 +403,7 @@ export function IDCardMode() {
                 onClick={() => activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click()}
               >
                 <Upload className="w-3.5 h-3.5 mr-1" />
-                Upload {activeSide === 'front' ? 'Front' : 'Back'}
+                Upload {activeSide === 'front' ? 'Front' : 'Back'} (Image / PDF)
               </Button>
             </div>
           </div>
@@ -380,8 +432,13 @@ export function IDCardMode() {
                 onClick={() => activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click()}
               >
                 <CreditCard className="w-12 h-12 text-muted-foreground/50 mb-3" />
-                <p className="text-sm font-medium">Click to upload {activeSide} side image</p>
-                <p className="text-xs text-muted-foreground mt-1">Supports scanned photos or documents (JPG, PNG, WEBP)</p>
+                <p className="text-sm font-medium">Click to upload {activeSide} side image or PDF</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Supports Photos, Scans, e-Aadhaar, PAN & DL PDFs (JPG, PNG, WEBP, PDF)
+                </p>
+                <p className="text-[11px] text-emerald-500 font-medium mt-2">
+                  💡 Tip: Uploading a 2-page e-Aadhaar PDF automatically sets Front & Back!
+                </p>
               </div>
             )}
           </div>

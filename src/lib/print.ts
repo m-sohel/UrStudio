@@ -87,6 +87,14 @@ export function generatePrintHTML(config: PrintConfig): string {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
+    img {
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: high-quality;
     }
 
     body {
@@ -245,23 +253,20 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
       margin: 0;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
+    * {
       margin: 0;
       padding: 0;
-      width: ${pageWidth}mm;
-      height: ${pageHeight}mm;
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
     }
 
-    .print-page {
-      position: relative;
-      width: ${pageWidth}mm;
-      height: ${pageHeight}mm;
-      overflow: hidden;
+    img {
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: high-quality;
+      display: block;
     }
-
-    .card-cell img { display: block; }
 
     @media screen {
       body {
@@ -337,9 +342,11 @@ export function printViaIframe(html: string): void {
  * Browser print settings instructions.
  */
 export const PRINT_INSTRUCTIONS = [
-  'Set Scale to 100% (or "Actual Size")',
-  'Set Margins to "None"',
-  'Select the correct Paper Size',
+  'Set Scale to 100% (or "Actual Size") — do NOT choose "Fit to Page"',
+  'Set Margins to "None" to preserve physical millimeter placement',
+  'Select the matching Paper Size (A4, 4×6, or CR80 card)',
   'Disable "Headers and Footers"',
-  'Enable "Background Graphics" if colors appear faded',
+  'Enable "Background Graphics"',
+  'Color Matching: In printer driver preferences, select "Photo Paper / Glossy" so the printer uses appropriate CMY/CMYK ink density',
+  'Skin Tone Tip: Use the CMYK Soft-Proof & Skin Tone slider if prints appear too dark or reddish on paper',
 ];

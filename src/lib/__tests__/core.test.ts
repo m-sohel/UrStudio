@@ -21,6 +21,14 @@ import {
   centerCropForAspectRatio, formatFileSize
 } from '../image-processing';
 
+import {
+  rgbToCmyk, cmykToRgb, simulateCmykProof, isOutOfGamut
+} from '../color-management';
+
+import {
+  isPdfFile
+} from '../pdf-processor';
+
 // ============================================================
 // 1. Unit Conversion Tests
 // ============================================================
@@ -263,3 +271,73 @@ test('Image Processing: formatFileSize returns human readable string', () => {
   assert.equal(formatFileSize(1024 * 50), '50.0 KB');
   assert.equal(formatFileSize(1024 * 1024 * 2.5), '2.5 MB');
 });
+
+// ============================================================
+// 5. Color Management (RGB to CMYK / CMY) Tests
+// ============================================================
+
+test('Color Management: rgbToCmyk converts primary colors accurately', () => {
+  // Pure White (255, 255, 255) -> C:0, M:0, Y:0, K:0
+  const white = rgbToCmyk(255, 255, 255);
+  assert.equal(white.c, 0);
+  assert.equal(white.m, 0);
+  assert.equal(white.y, 0);
+  assert.equal(white.k, 0);
+
+  // Pure Black (0, 0, 0) -> K: 1
+  const black = rgbToCmyk(0, 0, 0);
+  assert.equal(black.k, 1);
+
+  // Pure Red (255, 0, 0) -> Cyan: 0, Magenta: 1, Yellow: 1, Black: 0
+  const red = rgbToCmyk(255, 0, 0);
+  assert.equal(red.c, 0);
+  assert.equal(red.m, 1);
+  assert.equal(red.y, 1);
+  assert.equal(red.k, 0);
+
+  // Pure Cyan (0, 255, 255) -> Cyan: 1, Magenta: 0, Yellow: 0, Black: 0
+  const cyan = rgbToCmyk(0, 255, 255);
+  assert.equal(cyan.c, 1);
+  assert.equal(cyan.m, 0);
+  assert.equal(cyan.y, 0);
+  assert.equal(cyan.k, 0);
+});
+
+test('Color Management: cmykToRgb converts back to sRGB accurately', () => {
+  const red = cmykToRgb(0, 1, 1, 0);
+  assert.equal(red.r, 255);
+  assert.equal(red.g, 0);
+  assert.equal(red.b, 0);
+
+  const white = cmykToRgb(0, 0, 0, 0);
+  assert.equal(white.r, 255);
+  assert.equal(white.g, 255);
+  assert.equal(white.b, 255);
+});
+
+test('Color Management: simulateCmykProof simulates reflective paper output', () => {
+  // Pure bright RGB blue (0, 0, 255) on paper prints darker due to CMY ink absorption
+  const proof = simulateCmykProof(0, 0, 255, 'glossy');
+  assert.ok(proof.b < 255, 'Blue is compressed to physical ink gamut');
+  assert.ok(proof.r >= 0 && proof.g >= 0 && proof.b >= 0);
+});
+
+test('Color Management: isOutOfGamut detects ultra-saturated digital colors', () => {
+  assert.equal(isOutOfGamut(0, 255, 255), true, 'Hyper-saturated digital cyan is out of CMYK gamut');
+  assert.equal(isOutOfGamut(180, 140, 120), false, 'Natural skin tone is inside gamut');
+});
+
+// ============================================================
+// 6. PDF Processor Tests
+// ============================================================
+
+test('PDF Processor: isPdfFile identifies PDF files correctly', () => {
+  const pdfMime = { type: 'application/pdf', name: 'eaadhaar.pdf' } as File;
+  const pdfExt = { type: '', name: 'pancard.PDF' } as File;
+  const jpgFile = { type: 'image/jpeg', name: 'photo.jpg' } as File;
+
+  assert.equal(isPdfFile(pdfMime), true);
+  assert.equal(isPdfFile(pdfExt), true);
+  assert.equal(isPdfFile(jpgFile), false);
+});
+

@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useCallback, useRef, useState } from 'react';
-import { Upload, Camera, Image as ImageIcon, X, Copy, Pencil, FileImage } from 'lucide-react';
+import { Upload, Camera, Image as ImageIcon, X, Copy, FileText, FileImage, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { loadImage, isSupportedImage, formatFileSize, generateThumbnail, loadImageElement } from '@/lib/image-processing';
+import { isPdfFile, loadPdfPages, pdfPageToEditorImage } from '@/lib/pdf-processor';
 import { useEditorStore, type EditorImage } from '@/store/editor-store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -12,16 +13,18 @@ export function ImageUploader() {
   const { addImages, images, removeImage, selectImage, selectedImageIndex, duplicateImage } = useEditorStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState<string>('Loading...');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFiles = useCallback(async (files: FileList | File[]) => {
     setError(null);
     setIsLoading(true);
+    setLoadingText('Processing uploaded files...');
 
     const validFiles = Array.from(files).filter(f => {
-      if (!isSupportedImage(f)) {
-        setError(`Unsupported format: ${f.name}. Use JPG, PNG, or WEBP.`);
+      if (!isSupportedImage(f) && !isPdfFile(f)) {
+        setError(`Unsupported format: ${f.name}. Use JPG, PNG, WEBP, or PDF.`);
         return false;
       }
       if (f.size > 50 * 1024 * 1024) {
@@ -33,17 +36,37 @@ export function ImageUploader() {
 
     try {
       const loadedImages: EditorImage[] = [];
+
       for (const file of validFiles) {
-        const info = await loadImage(file);
-        const imgEl = await loadImageElement(info.objectUrl);
-        const thumbnailUrl = generateThumbnail(imgEl, 200);
-        loadedImages.push({ ...info, thumbnailUrl });
+        if (isPdfFile(file)) {
+          setLoadingText(`Rendering PDF at 300 DPI (${file.name})...`);
+          const pages = await loadPdfPages(file, {
+            dpi: 300,
+            onProgress: (curr, total) => {
+              setLoadingText(`Rendering PDF page ${curr}/${total}...`);
+            }
+          });
+
+          for (const p of pages) {
+            const editorImg = pdfPageToEditorImage(p, file);
+            editorImg.isPdf = true;
+            editorImg.pdfPageNumber = p.pageNumber;
+            loadedImages.push(editorImg);
+          }
+        } else {
+          setLoadingText(`Loading image (${file.name})...`);
+          const info = await loadImage(file);
+          const imgEl = await loadImageElement(info.objectUrl);
+          const thumbnailUrl = generateThumbnail(imgEl, 200);
+          loadedImages.push({ ...info, thumbnailUrl });
+        }
       }
+
       if (loadedImages.length > 0) {
         addImages(loadedImages);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load image');
+      setError(err instanceof Error ? err.message : 'Failed to process files');
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +94,7 @@ export function ImageUploader() {
     const items = e.clipboardData.items;
     const files: File[] = [];
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith('image/')) {
+      if (items[i].type.startsWith('image/') || items[i].type === 'application/pdf') {
         const file = items[i].getAsFile();
         if (file) files.push(file);
       }
@@ -116,13 +139,13 @@ export function ImageUploader() {
             <Upload className="w-10 h-10 text-primary" />
           </div>
           <h3 className="text-lg font-semibold mb-2">
-            {isDragging ? 'Drop images here' : 'Upload Images'}
+            {isDragging ? 'Drop images or PDF here' : 'Upload Photos or PDF'}
           </h3>
           <p className="text-muted-foreground text-sm text-center max-w-sm">
-            Drag & drop images here, click to browse, or paste from clipboard
+            Drag & drop images or PDFs here, click to browse, or paste from clipboard
           </p>
-          <p className="text-muted-foreground/60 text-xs mt-2">
-            Supports JPG, PNG, WEBP • Max 50MB
+          <p className="text-muted-foreground/70 text-xs mt-2 text-center">
+            Supports JPG, PNG, WEBP & PDF (e-Aadhaar, PAN, Documents) • Max 50MB
           </p>
 
           <div className="flex gap-2 mt-6">
@@ -152,8 +175,8 @@ export function ImageUploader() {
 
           {isLoading && (
             <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              Loading...
+              <Loader2 className="w-4 h-4 text-primary animate-spin" />
+              <span>{loadingText}</span>
             </div>
           )}
 
@@ -170,20 +193,31 @@ export function ImageUploader() {
               size="sm"
               onClick={() => fileInputRef.current?.click()}
               className="flex-1"
+              disabled={isLoading}
             >
-              <Upload className="w-4 h-4 mr-2" />
-              Add More
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  {loadingText}
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Add Photo / PDF
+                </>
+              )}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleCameraCapture}
+              disabled={isLoading}
             >
               <Camera className="w-4 h-4" />
             </Button>
           </div>
 
-          {/* Image Thumbnails */}
+          {/* Image & PDF Thumbnails */}
           <ScrollArea className="flex-1">
             <div className="p-3 space-y-2">
               {images.map((img, index) => (
@@ -200,17 +234,29 @@ export function ImageUploader() {
                   onClick={() => selectImage(index)}
                 >
                   {/* Thumbnail */}
-                  <div className="w-14 h-14 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                  <div className="w-14 h-14 rounded-md overflow-hidden bg-muted flex-shrink-0 relative">
                     <img
                       src={img.thumbnailUrl || img.objectUrl}
                       alt={img.name}
                       className="w-full h-full object-cover"
                     />
+                    {img.isPdf && (
+                      <Badge className="absolute bottom-0.5 right-0.5 text-[8px] px-1 py-0 bg-red-600 text-white font-mono">
+                        P{img.pdfPageNumber || 1}
+                      </Badge>
+                    )}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{img.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium truncate">{img.name}</p>
+                      {img.isPdf && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 text-red-500 border-red-500/30 flex-shrink-0">
+                          PDF
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {img.width} × {img.height} px
                     </p>
@@ -249,7 +295,7 @@ export function ImageUploader() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <p className="text-primary font-medium">Drop images here</p>
+              <p className="text-primary font-medium">Drop photos or PDF here</p>
             </div>
           )}
 
@@ -264,7 +310,7 @@ export function ImageUploader() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
         multiple
         className="hidden"
         onChange={(e) => {
