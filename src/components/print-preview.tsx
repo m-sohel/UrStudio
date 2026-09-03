@@ -1,0 +1,187 @@
+'use client';
+
+import React, { useCallback, useMemo } from 'react';
+import {
+  Printer, ZoomIn, ZoomOut, Maximize, ArrowLeft, Info,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { useEditorStore } from '@/store/editor-store';
+import {
+  getPaperSize, getEffectivePaperDimensions,
+  getPhotoTemplate, getIDCardTemplate,
+} from '@/lib/templates';
+import { generatePrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
+
+export function PrintPreview() {
+  const {
+    croppedImageUrl,
+    layoutResult,
+    paperSettings,
+    selectedTemplateId,
+    selectedTemplateType,
+    setStep,
+  } = useEditorStore();
+
+  const [zoom, setZoom] = React.useState(1);
+  const [showInstructions, setShowInstructions] = React.useState(false);
+
+  const paper = getPaperSize(paperSettings.paperId);
+
+  const template = useMemo(() => {
+    if (!selectedTemplateId) return null;
+    return selectedTemplateType === 'photo'
+      ? getPhotoTemplate(selectedTemplateId)
+      : getIDCardTemplate(selectedTemplateId);
+  }, [selectedTemplateId, selectedTemplateType]);
+
+  const handlePrint = useCallback(() => {
+    if (!paper || !layoutResult || !croppedImageUrl || !template) return;
+
+    const dims = getEffectivePaperDimensions(paper, paperSettings.orientation);
+
+    const html = generatePrintHTML({
+      paperWidth: dims.width,
+      paperHeight: dims.height,
+      orientation: paperSettings.orientation,
+      positions: layoutResult.positions,
+      imageUrl: croppedImageUrl,
+      itemWidth: template.width,
+      itemHeight: template.height,
+    });
+
+    printViaIframe(html);
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template]);
+
+  if (!paper || !layoutResult || !template) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-muted-foreground">
+        <p>Generate a layout first to see the print preview</p>
+      </div>
+    );
+  }
+
+  const dims = getEffectivePaperDimensions(paper, paperSettings.orientation);
+
+  // Scale for screen display (base: 2px per mm)
+  const baseScale = 2;
+  const scale = baseScale * zoom;
+  const paperW = dims.width * scale;
+  const paperH = dims.height * scale;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Top bar */}
+      <div className="flex items-center gap-2 p-3 border-b border-border">
+        <Button variant="ghost" size="sm" onClick={() => setStep('layout')}>
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Back to Editor
+        </Button>
+
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="secondary">{paper.name}</Badge>
+          <Badge variant="secondary">{paperSettings.orientation}</Badge>
+          <Badge variant="secondary">
+            {template.width}×{template.height}mm
+          </Badge>
+          <Badge variant="secondary">
+            {layoutResult.totalItems} copies
+          </Badge>
+        </div>
+
+        <Separator orientation="vertical" className="h-6 mx-2" />
+
+        {/* Zoom controls */}
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
+          <ZoomOut className="w-4 h-4" />
+        </Button>
+        <span className="text-xs text-muted-foreground w-12 text-center">
+          {Math.round(zoom * 100)}%
+        </span>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(3, z + 0.25))}>
+          <ZoomIn className="w-4 h-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(1)}>
+          <Maximize className="w-4 h-4" />
+        </Button>
+
+        <Separator orientation="vertical" className="h-6 mx-2" />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowInstructions(!showInstructions)}
+        >
+          <Info className="w-4 h-4 mr-1" />
+          Print Tips
+        </Button>
+
+        <Button
+          size="sm"
+          onClick={handlePrint}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          <Printer className="w-4 h-4 mr-1" />
+          Print
+        </Button>
+      </div>
+
+      {/* Instructions panel */}
+      {showInstructions && (
+        <div className="p-4 bg-amber-500/10 border-b border-amber-500/20">
+          <h4 className="text-sm font-medium text-amber-500 mb-2">⚠️ Printer Settings for Accurate Sizing</h4>
+          <ul className="text-xs text-muted-foreground space-y-1">
+            {PRINT_INSTRUCTIONS.map((inst, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="text-amber-500 font-bold">•</span>
+                {inst}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Preview area */}
+      <div className="flex-1 overflow-auto bg-muted/30 flex items-start justify-center p-8">
+        <div
+          className="relative bg-white shadow-2xl"
+          style={{
+            width: `${paperW}px`,
+            height: `${paperH}px`,
+            minWidth: `${paperW}px`,
+            minHeight: `${paperH}px`,
+          }}
+        >
+          {layoutResult.positions.map((pos, i) => (
+            <div
+              key={i}
+              className="absolute overflow-hidden"
+              style={{
+                left: `${pos.x * scale}px`,
+                top: `${pos.y * scale}px`,
+                width: `${pos.width * scale}px`,
+                height: `${pos.height * scale}px`,
+              }}
+            >
+              {croppedImageUrl ? (
+                <img
+                  src={croppedImageUrl}
+                  alt={`Copy ${i + 1}`}
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-100 border border-gray-200 flex items-center justify-center">
+                  <span className="text-xs text-gray-400">{i + 1}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

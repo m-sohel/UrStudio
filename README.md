@@ -1,36 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# iPrint — CyberCafe Photo & ID Card Printing Software
 
-## Getting Started
+A production-ready, offline-first web application for cybercafés, photo studios, printing shops, and CSC document centers. Allows operators to rapidly crop, arrange, resize, and print passport photos, visa photos, and ID cards with exact physical print dimensions.
 
-First, run the development server:
+---
 
+## 🚀 Key Features
+
+### 1. Fast Photo Workflow
+- **Flexible Upload**: Multi-file upload, drag-and-drop, clipboard paste (`Ctrl+V`), or camera capture.
+- **Precision Cropping**: Locked physical ratios for:
+  - Indian / EU Passport Photo (`35 × 45 mm`)
+  - US Passport / Visa Photo (`2 × 2 inch` / `50.8 × 50.8 mm`)
+  - Stamp Size Photo (`20 × 25 mm`)
+  - Square & Custom Dimensions
+- **Image Adjustments**: Brightness, Contrast, Saturation, and Grayscale filters.
+- **Transformations**: 90° CW/CCW rotation, horizontal and vertical flips.
+
+### 2. Dedicated ID Card & PVC Card Printing (One-by-One)
+- **Dual Slots**: Dedicated upload & cropping for Front side and Back side.
+- **CR80 Standard**: Locked to standard card proportions (`85.6 × 53.98 mm`).
+- **Direct PVC Card Printing (One-by-One)**:
+  - Specially designed for plastic card printers (Zebra, Evolis, Magicard, Fargo, or Epson PVC Card Trays).
+  - Print Front side at exact CR80 size with 0 margin.
+  - Step-by-step guidance to flip card in printer tray and print Back side.
+- **Paper Sheet Printing (A4 / 4×6 / A5)**:
+  - Layout options: **Stacked** (Front Top, Back Bottom for folding & laminating), **Side-by-Side**, **Front Only**, or **Back Only**.
+  - Customizable copies (e.g. 1 set, 4 sets, 8 sets on A4).
+  - Optional rounded cutting guide borders (`0.2mm` border with `2mm` radius).
+
+### 3. Automatic Sheet Layout Engine
+- Calculates maximum possible copies on any paper size without overflow.
+- Supported paper sizes: **A4**, **4×6 inch**, **A5**, **5×7 inch**, **Letter**, **Legal**, and **PVC Card (CR80)**.
+- Full control over Margins (top, bottom, left, right) and Gaps (horizontal, vertical).
+- Optional cutting guides (subtle dashed lines around photos for fast trimming).
+
+### 4. Template Manager
+- Built-in library of international photo and ID card presets.
+- Custom Template Creator: define custom dimensions in `mm` or `in`, default paper, and copies.
+- Stored locally via IndexedDB / localStorage.
+
+### 5. 100% Offline-First & Privacy-Focused
+- All image manipulation and cropping runs entirely client-side using the HTML5 Canvas API.
+- Customer photos are **never** uploaded to an external server.
+- Works offline without an internet connection.
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl + Z` | Undo |
+| `Ctrl + Shift + Z` | Redo |
+| `Ctrl + P` | Print Preview |
+| `Esc` | Back / Cancel |
+
+---
+
+## 🛠️ Technology Stack
+
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Turbopack)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **UI & Styling**: [Tailwind CSS v4](https://tailwindcss.com/) & [shadcn/ui](https://ui.shadcn.com/)
+- **State Management**: [Zustand](https://zustand.docs.pmnd.rs/) with localStorage persistence
+- **Image Processing**: HTML5 Canvas API, [Cropper.js](https://fengyuanchen.github.io/cropperjs/)
+- **Storage**: [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) via `idb-keyval`
+- **Testing**: [Node.js Native Test Runner](https://nodejs.org/api/test.html) via `tsx`
+
+---
+
+## 🏁 Getting Started
+
+### Prerequisites
+- Node.js 20+ installed
+- npm installed
+
+### Installation
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone the repository
+git clone https://github.com/m-sohel/iPrint.git
+cd iPrint
+
+# Install dependencies
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Running Locally
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Running Tests
+```bash
+npm test
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Production Build
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🖨️ Printer Calibration Tips
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+When printing from the browser print dialog:
+1. **Scale**: Set to **100%** or **Actual Size** (do NOT use "Fit to Page").
+2. **Margins**: Set to **None**.
+3. **Paper Size**: Ensure the selected paper in the printer dialog matches your sheet (e.g. A4, 4×6, or CR80 card).
+4. **Headers & Footers**: Disabled.
