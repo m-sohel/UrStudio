@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Trash2, Download, Upload, RotateCcw } from 'lucide-react';
+import {
+  ArrowLeft, Trash2, ShieldCheck, HardDrive, Scissors, RotateCcw, AlertTriangle, Check
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -15,16 +17,43 @@ import { useSettingsStore } from '@/store/settings-store';
 import { useProjectStore } from '@/store/project-store';
 import { useTemplateStore } from '@/store/template-store';
 import { PAPER_SIZES } from '@/lib/templates';
-import { clearAllData, clearProjects, clearTemplates } from '@/lib/storage';
+import {
+  clearAllData, clearProjects, clearTemplates, getStorageHealth,
+  purgeAllCustomerData, type StorageHealth
+} from '@/lib/storage';
 
 export default function SettingsPage() {
   const settings = useSettingsStore();
   const { clearRecentProjects } = useProjectStore();
   const { customPhotoTemplates, customIDCardTemplates } = useTemplateStore();
 
+  const [storageHealth, setStorageHealth] = useState<StorageHealth | null>(null);
+  const [purgeSuccess, setPurgeSuccess] = useState(false);
+
+  useEffect(() => {
+    getStorageHealth().then(setStorageHealth).catch(() => {});
+  }, []);
+
+  const handlePurgeCustomerData = async () => {
+    if (confirm('Purge all customer job history and cached images? Custom templates will be kept.')) {
+      await purgeAllCustomerData();
+      clearRecentProjects();
+      const updated = await getStorageHealth();
+      setStorageHealth(updated);
+      setPurgeSuccess(true);
+      setTimeout(() => setPurgeSuccess(false), 3000);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (!bytes) return '0 KB';
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background pb-12">
         {/* Header */}
         <header className="border-b border-border bg-card">
           <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
@@ -35,7 +64,7 @@ export default function SettingsPage() {
             </Link>
             <div>
               <h1 className="text-lg font-bold">Settings</h1>
-              <p className="text-xs text-muted-foreground">Configure defaults and preferences</p>
+              <p className="text-xs text-muted-foreground">Configure hardware alignment, printing defaults, and data security</p>
             </div>
           </div>
         </header>
@@ -76,6 +105,7 @@ export default function SettingsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {/* FIXED: Removed asChild prop to comply with @base-ui/react */}
                       <SelectItem value="portrait">Portrait</SelectItem>
                       <SelectItem value="landscape">Landscape</SelectItem>
                     </SelectContent>
@@ -107,130 +137,133 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Photo Defaults */}
+          {/* Hardware Alignment & Mechanical Bleed */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Photo Defaults</CardTitle>
-              <CardDescription>Default settings for photo printing</CardDescription>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Scissors className="w-4 h-4 text-primary" />
+                Hardware Alignment & Cutting Guides
+              </CardTitle>
+              <CardDescription>Compensates for manual paper cutter, guillotine, and card punch tolerances</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm">Default Spacing (mm)</Label>
+                  <Label className="text-sm">Mechanical Bleed Margin (mm)</Label>
                   <Input
                     type="number"
+                    step={0.5}
                     min={0}
-                    max={30}
-                    value={settings.defaultSpacing}
-                    onChange={(e) => settings.updateSettings({ defaultSpacing: parseInt(e.target.value) || 0 })}
+                    max={5}
+                    value={settings.defaultBleedMm}
+                    onChange={(e) => settings.updateSettings({ defaultBleedMm: parseFloat(e.target.value) || 0 })}
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Adds 1.0mm–1.5mm bleed outside trim edge to prevent white borders on cutter drift.
+                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm">Default Copies</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={settings.defaultCopies}
-                    onChange={(e) => settings.updateSettings({ defaultCopies: parseInt(e.target.value) || 1 })}
+                <div className="flex items-center justify-between pt-4 sm:pt-0">
+                  <div>
+                    <Label className="text-sm">Corner Crop Marks (Crosshairs)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Print L-shaped corner tick marks for trimmer alignment
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.showCropMarks}
+                    onCheckedChange={(v) => settings.updateSettings({ showCropMarks: v })}
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Application */}
+          {/* Cybercafé Privacy & Customer Data Protection */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Application</CardTitle>
-              <CardDescription>General application preferences</CardDescription>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                Cybercafé Privacy & Data Security
+              </CardTitle>
+              <CardDescription>Protect customer Aadhaar, PAN, and identity documents on shared operator PCs</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm">Autosave</Label>
-                  <p className="text-xs text-muted-foreground">Automatically save projects</p>
+                  <Label className="text-sm font-medium">Auto-Wipe Customer Data on Print</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Automatically clears customer uploaded images from browser memory right after printing
+                  </p>
                 </div>
                 <Switch
-                  checked={settings.autosave}
-                  onCheckedChange={(v) => settings.updateSettings({ autosave: v })}
+                  checked={settings.autoWipeOnPrint}
+                  onCheckedChange={(v) => settings.updateSettings({ autoWipeOnPrint: v })}
                 />
               </div>
 
               <Separator />
 
-              <div className="space-y-2">
-                <Label className="text-sm">Theme</Label>
-                <Select
-                  value={settings.theme}
-                  onValueChange={(v) => {
-                    if (!v) return;
-                    settings.updateSettings({ theme: v as 'dark' | 'light' | 'system' });
-                    if (v === 'dark') document.documentElement.classList.add('dark');
-                    else document.documentElement.classList.remove('dark');
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="light">Light</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Data Management */}
-          <Card className="border-destructive/20">
-            <CardHeader>
-              <CardTitle className="text-base text-destructive">Data Management</CardTitle>
-              <CardDescription>Manage locally stored data</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              {/* Storage Health Inspection */}
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Custom Templates</p>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">IndexedDB Storage Health</p>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {customPhotoTemplates.length + customIDCardTemplates.length} custom templates
+                    {storageHealth
+                      ? `${storageHealth.projectCount} stored customer jobs • ${storageHealth.templateCount} custom templates • ~${formatBytes(storageHealth.estimatedBytes)} used`
+                      : 'Calculating storage footprint...'}
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={async () => {
-                    if (confirm('Delete all custom templates?')) {
-                      await clearTemplates();
-                      window.location.reload();
-                    }
-                  }}
+                  onClick={handlePurgeCustomerData}
+                  className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 text-xs"
                 >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Clear
+                  {purgeSuccess ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                      Purged
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Purge Customer Jobs
+                    </>
+                  )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
 
-              <Separator />
-
+          {/* Data Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base text-destructive flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Data Reset
+              </CardTitle>
+              <CardDescription>Reset configuration and clear local storage</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">Recent Projects</p>
-                  <p className="text-xs text-muted-foreground">Clear project history</p>
+                  <p className="text-sm font-medium">Reset Settings</p>
+                  <p className="text-xs text-muted-foreground">Restore default printing and paper preferences</p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={async () => {
-                    if (confirm('Clear all recent projects?')) {
-                      clearRecentProjects();
-                      await clearProjects();
-                    }
+                  onClick={() => {
+                    settings.resetSettings();
+                    alert('Settings restored to defaults');
                   }}
                 >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Clear
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                  Reset Defaults
                 </Button>
               </div>
 
@@ -238,9 +271,9 @@ export default function SettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-destructive">Clear All Data</p>
+                  <p className="text-sm font-medium text-destructive">Clear All Local Data</p>
                   <p className="text-xs text-muted-foreground">
-                    Remove all templates, projects, and settings
+                    Permanently delete all custom templates, projects, and application settings
                   </p>
                 </div>
                 <Button
@@ -254,20 +287,9 @@ export default function SettingsPage() {
                   }}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Clear All
+                  Clear Everything
                 </Button>
               </div>
-
-              <Separator />
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => settings.resetSettings()}
-              >
-                <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                Reset Settings to Defaults
-              </Button>
             </CardContent>
           </Card>
         </main>

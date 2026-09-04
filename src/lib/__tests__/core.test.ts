@@ -22,12 +22,16 @@ import {
 } from '../image-processing';
 
 import {
-  rgbToCmyk, cmykToRgb, simulateCmykProof, isOutOfGamut
+  rgbToCmyk, cmykToRgb, simulateCmykProof, isOutOfGamut, getOrBuildLut3D, LUT_SIZE
 } from '../color-management';
 
 import {
-  isPdfFile
+  isPdfFile, PasswordRequiredError
 } from '../pdf-processor';
+
+import {
+  generatePrintHTML, generateIDCardPrintHTML
+} from '../print';
 
 // ============================================================
 // 1. Unit Conversion Tests
@@ -340,4 +344,61 @@ test('PDF Processor: isPdfFile identifies PDF files correctly', () => {
   assert.equal(isPdfFile(pdfExt), true);
   assert.equal(isPdfFile(jpgFile), false);
 });
+
+test('PDF Processor: PasswordRequiredError is defined and has correct message', () => {
+  const err = new PasswordRequiredError();
+  assert.equal(err.name, 'PasswordRequiredError');
+  assert.ok(err.message.includes('encrypted'));
+});
+
+// ============================================================
+// 7. 3D LUT & Optimization Tests
+// ============================================================
+
+test('Color Management: 3D LUT generates correct array size for 33x33x33 grid', () => {
+  const lut = getOrBuildLut3D('glossy');
+  const expectedLength = LUT_SIZE * LUT_SIZE * LUT_SIZE * 3;
+  assert.equal(lut.length, expectedLength);
+  assert.ok(lut[0] >= 0, 'First byte is non-negative');
+});
+
+// ============================================================
+// 8. Print Engine Hardware Alignment & Bleed Tests
+// ============================================================
+
+test('Print Engine: generatePrintHTML renders bleed wrapper and corner crop marks', () => {
+  const html = generatePrintHTML({
+    paperWidth: 210,
+    paperHeight: 297,
+    orientation: 'portrait',
+    positions: [{ x: 10, y: 10, width: 35, height: 45, row: 0, col: 0 }],
+    imageUrl: 'data:image/jpeg;base64,test',
+    itemWidth: 35,
+    itemHeight: 45,
+    bleedMm: 1.5,
+    showCropMarks: true,
+  });
+
+  assert.ok(html.includes('photo-cell-wrapper'), 'Contains photo cell wrapper for bleed');
+  assert.ok(html.includes('crop-mark tl'), 'Contains top-left corner crop mark');
+  assert.ok(html.includes('crop-mark br'), 'Contains bottom-right corner crop mark');
+  assert.ok(html.includes('38mm'), 'Renders width expanded by 2 x 1.5mm bleed (35 + 3 = 38mm)');
+});
+
+test('Print Engine: generateIDCardPrintHTML renders bleed and crop marks on sheet', () => {
+  const html = generateIDCardPrintHTML({
+    paperWidth: 210,
+    paperHeight: 297,
+    orientation: 'portrait',
+    cardWidth: 85.6,
+    cardHeight: 53.98,
+    frontImageUrl: 'data:image/jpeg;base64,front',
+    bleedMm: 1.0,
+    showCropMarks: true,
+  });
+
+  assert.ok(html.includes('card-cell-wrapper'), 'Contains card cell wrapper for bleed');
+  assert.ok(html.includes('crop-mark tl'), 'Contains corner crop mark');
+});
+
 

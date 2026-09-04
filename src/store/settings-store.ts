@@ -3,7 +3,8 @@
 /**
  * Settings Store
  * 
- * Persisted application settings.
+ * Persisted application settings including hardware print alignment,
+ * mechanical bleed, and cybercafé privacy auto-wipe policies.
  */
 
 import { create } from 'zustand';
@@ -23,6 +24,13 @@ interface SettingsState {
   defaultSpacing: number;
   defaultCopies: number;
   
+  // Hardware Alignment & Bleed
+  defaultBleedMm: number;
+  showCropMarks: boolean;
+
+  // Cybercafé Privacy
+  autoWipeOnPrint: boolean;
+
   // Application
   theme: Theme;
   autosave: boolean;
@@ -41,6 +49,9 @@ const DEFAULT_SETTINGS = {
   defaultPhotoTemplateId: 'passport-photo-india',
   defaultSpacing: 3,
   defaultCopies: 8,
+  defaultBleedMm: 0,
+  showCropMarks: true,
+  autoWipeOnPrint: false,
   theme: 'dark' as Theme,
   autosave: true,
   recentProjectCount: 20,

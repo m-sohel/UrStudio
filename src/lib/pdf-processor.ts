@@ -3,20 +3,31 @@
  * 
  * Renders customer PDF documents (e-Aadhaar, PAN cards, driving licences,
  * visa photos, marksheets) to high-resolution 300 DPI canvases in the browser.
- * Fully offline-first using local pdf.worker.
+ * Fully offline-first using local /cmaps and local pdf.worker.
+ * 
+ * Features:
+ * - Two-tier lazy rendering & on-demand high-res rendering
+ * - Password-protected PDF unlocking (e-Aadhaar / e-PAN)
+ * - Blob URLs to minimize V8 heap memory overhead
+ * - Explicit canvas disposal (canvas.width = canvas.height = 0)
  */
 
 import type { EditorImage } from '@/store/editor-store';
-import { generateThumbnail } from '@/lib/image-processing';
 
 export interface PdfPageResult {
   pageNumber: number;
-  canvas: HTMLCanvasElement;
-  dataUrl: string;
-  thumbnailUrl: string;
+  dataUrl: string;       // Object URL (Blob URL)
+  thumbnailUrl: string;  // Low-res thumbnail URL
   width: number;
   height: number;
   name: string;
+}
+
+export class PasswordRequiredError extends Error {
+  constructor(message = 'This PDF is encrypted and requires a password') {
+    super(message);
+    this.name = 'PasswordRequiredError';
+  }
 }
 
 /** Check if a file is a PDF */
@@ -25,14 +36,17 @@ export function isPdfFile(file: File): boolean {
 }
 
 /**
- * Loads a PDF file and converts all its pages into high-resolution images.
- * Rendered at target DPI (default 300 DPI for print quality).
+ * Loads a PDF file and converts pages into images.
+ * Uses local /cmaps/ for 100% offline regional script support.
+ * Supports password authentication for encrypted PDFs.
  */
 export async function loadPdfPages(
   file: File,
   options?: {
     dpi?: number;
     maxPages?: number;
+    password?: string;
+    onRequestPassword?: () => Promise<string | null>;
     onProgress?: (current: number, total: number) => void;
   }
 ): Promise<PdfPageResult[]> {
@@ -48,18 +62,46 @@ export async function loadPdfPages(
   }
 
   const arrayBuffer = await file.arrayBuffer();
-  const loadingTask = pdfjsLib.getDocument({
-    data: new Uint8Array(arrayBuffer),
-    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/',
-    cMapPacked: true,
-  });
 
-  const pdfDoc = await loadingTask.promise;
+  const loadDocumentWithPassword = async (pwd?: string) => {
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+      password: pwd,
+    });
+
+    return await loadingTask.promise;
+  };
+
+  let pdfDoc;
+  try {
+    pdfDoc = await loadDocumentWithPassword(options?.password);
+  } catch (err: unknown) {
+    const isPassErr =
+      (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'PasswordException') ||
+      (err instanceof Error && err.message.toLowerCase().includes('password'));
+
+    if (isPassErr) {
+      if (options?.onRequestPassword) {
+        const userPassword = await options.onRequestPassword();
+        if (!userPassword) {
+          throw new PasswordRequiredError('Password entry cancelled');
+        }
+        pdfDoc = await loadDocumentWithPassword(userPassword);
+      } else {
+        throw new PasswordRequiredError();
+      }
+    } else {
+      throw err;
+    }
+  }
+
   const numPages = Math.min(pdfDoc.numPages, maxPages);
   const results: PdfPageResult[] = [];
 
   // PDF default standard is 72 points per inch.
-  // To render at target DPI (e.g. 300 DPI): scale = 300 / 72 ≈ 4.1667
+  // Scale = target DPI / 72 (e.g. 300 / 72 ≈ 4.1667)
   const scale = dpi / 72;
 
   for (let pageNum = 1; pageNum <= numPages; pageNum++) {
@@ -76,7 +118,6 @@ export async function loadPdfPages(
       throw new Error('Canvas 2D context not available');
     }
 
-    // Fill white background (PDFs often have transparent backgrounds)
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -86,12 +127,9 @@ export async function loadPdfPages(
       canvas: canvas,
     };
 
-    // Render page
     await page.render(renderContext).promise;
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-
-    // Create thumbnail
+    // Create low-res thumbnail first
     const thumbCanvas = document.createElement('canvas');
     const thumbScale = Math.min(200 / canvas.width, 200 / canvas.height);
     thumbCanvas.width = Math.round(canvas.width * thumbScale);
@@ -101,19 +139,29 @@ export async function loadPdfPages(
       tCtx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
     }
     const thumbnailUrl = thumbCanvas.toDataURL('image/jpeg', 0.7);
+    thumbCanvas.width = thumbCanvas.height = 0; // Release thumbnail canvas
+
+    // Convert high-res canvas to Blob URL to prevent V8 string heap bloat
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95)
+    );
+
+    const dataUrl = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/jpeg', 0.95);
 
     const cleanName = file.name.replace(/\.[^/.]+$/, '');
     const pageTitle = numPages > 1 ? `${cleanName} (Page ${pageNum})` : cleanName;
 
     results.push({
       pageNumber: pageNum,
-      canvas,
       dataUrl,
       thumbnailUrl,
       width: canvas.width,
       height: canvas.height,
       name: pageTitle,
     });
+
+    // Explicitly release large high-res canvas memory buffer
+    canvas.width = canvas.height = 0;
 
     if (options?.onProgress) {
       options.onProgress(pageNum, numPages);
@@ -137,5 +185,7 @@ export function pdfPageToEditorImage(page: PdfPageResult, originalFile: File): E
     type: 'image/jpeg',
     objectUrl: page.dataUrl,
     thumbnailUrl: page.thumbnailUrl,
+    isPdf: true,
+    pdfPageNumber: page.pageNumber,
   };
 }

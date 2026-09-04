@@ -20,6 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
 import { useEditorStore, type EditorImage } from '@/store/editor-store';
+import { useSettingsStore } from '@/store/settings-store';
 import {
   getIDCardTemplate, PAPER_SIZES, getPaperSize,
   getEffectivePaperDimensions, type IDCardTemplate
@@ -30,6 +31,7 @@ import { loadImage, loadImageElement, generateThumbnail, isSupportedImage } from
 import { isPdfFile, loadPdfPages, pdfPageToEditorImage } from '@/lib/pdf-processor';
 import { applyPrintColorCalibration } from '@/lib/color-management';
 import { mmToPx, DEFAULT_DPI } from '@/lib/units';
+import { PdfPasswordDialog } from '@/components/pdf-password-dialog';
 
 export function IDCardMode() {
   const {
@@ -39,6 +41,13 @@ export function IDCardMode() {
     copies, setCopies,
     colorCalibration,
   } = useEditorStore();
+
+  const [passwordPrompt, setPasswordPrompt] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    resolve?: (pwd: string) => void;
+    reject?: () => void;
+  }>({ isOpen: false, fileName: '' });
 
   const cropperRef = useRef<ReactCropperElement>(null);
   const frontInputRef = useRef<HTMLInputElement>(null);
@@ -96,7 +105,25 @@ export function IDCardMode() {
 
     if (isPdfFile(file)) {
       try {
-        const pages = await loadPdfPages(file, { dpi: 300 });
+        const pages = await loadPdfPages(file, {
+          dpi: 300,
+          onRequestPassword: () => {
+            return new Promise<string | null>((resolve) => {
+              setPasswordPrompt({
+                isOpen: true,
+                fileName: file.name,
+                resolve: (pwd) => {
+                  setPasswordPrompt({ isOpen: false, fileName: '' });
+                  resolve(pwd);
+                },
+                reject: () => {
+                  setPasswordPrompt({ isOpen: false, fileName: '' });
+                  resolve(null);
+                },
+              });
+            });
+          },
+        });
         if (pages.length === 0) return;
 
         if (pages.length >= 2) {
@@ -225,6 +252,8 @@ export function IDCardMode() {
     });
   }, [paperDims, template, paperSettings, idCardState.frontBackGap, idCardState.arrangement, copies]);
 
+  const settings = useSettingsStore();
+
   // Print Sheet
   const handlePrintSheet = useCallback(() => {
     if (!idCardState.frontCroppedUrl) {
@@ -238,14 +267,15 @@ export function IDCardMode() {
       orientation: paperSettings.orientation,
       cardWidth: template.width,
       cardHeight: template.height,
-      positions: sheetLayout.positions,
       frontImageUrl: idCardState.frontCroppedUrl,
       backImageUrl: idCardState.backCroppedUrl || undefined,
       showCuttingMarks: idCardState.showCuttingMarks,
+      bleedMm: settings.defaultBleedMm,
+      showCropMarks: settings.showCropMarks,
     });
 
     printViaIframe(html);
-  }, [paperDims, paperSettings, template, sheetLayout, idCardState]);
+  }, [paperDims, paperSettings, template, idCardState, settings]);
 
   // Print PVC Single Side
   const handlePrintPVCSide = useCallback((side: 'front' | 'back') => {
@@ -261,7 +291,6 @@ export function IDCardMode() {
       orientation: 'landscape',
       cardWidth: template.width,
       cardHeight: template.height,
-      positions: [],
       frontImageUrl: imgUrl,
       pvcSingleSide: side,
     });
@@ -743,6 +772,13 @@ export function IDCardMode() {
           </Tabs>
         </div>
       </div>
+
+      <PdfPasswordDialog
+        isOpen={passwordPrompt.isOpen}
+        fileName={passwordPrompt.fileName}
+        onUnlock={(pwd) => passwordPrompt.resolve?.(pwd)}
+        onCancel={() => passwordPrompt.reject?.()}
+      />
     </div>
   );
 }

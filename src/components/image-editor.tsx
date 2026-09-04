@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import Cropper, { ReactCropperElement } from 'react-cropper';
 import 'react-cropper/node_modules/cropperjs/dist/cropper.css';
 import {
@@ -22,7 +22,7 @@ import { useEditorStore } from '@/store/editor-store';
 import type { CropData } from '@/lib/image-processing';
 import { mmToPx, DEFAULT_DPI } from '@/lib/units';
 import { getPhotoTemplate, getIDCardTemplate } from '@/lib/templates';
-import { applyPrintColorCalibration } from '@/lib/color-management';
+import { applyPrintColorCalibration, applyPrintColorCalibrationAsync } from '@/lib/color-management';
 
 export function ImageEditor() {
   const cropperRef = useRef<ReactCropperElement>(null);
@@ -51,7 +51,7 @@ export function ImageEditor() {
     }
   }, [selectedTemplateId, selectedTemplateType]);
 
-  const handleCrop = useCallback(() => {
+  const handleCrop = useCallback(async () => {
     const cropper = cropperRef.current?.cropper;
     if (!cropper) return;
 
@@ -118,10 +118,11 @@ export function ImageEditor() {
           tempCtx.drawImage(canvas, 0, 0);
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(tempCanvas, 0, 0);
+          tempCanvas.width = tempCanvas.height = 0;
         }
       }
 
-      // 2. Apply Print Color Calibration (CMYK tone curve, shadow lift, skin tone balance)
+      // 2. Apply Print Color Calibration (worker-powered with 3D LUT)
       if (
         colorCalibration.printGamma !== 1.0 ||
         colorCalibration.cyanRedBalance !== 0 ||
@@ -129,11 +130,18 @@ export function ImageEditor() {
         colorCalibration.yellowBlueBalance !== 0 ||
         colorCalibration.cmykSoftProof
       ) {
-        applyPrintColorCalibration(ctx, canvas.width, canvas.height, colorCalibration);
+        await applyPrintColorCalibrationAsync(ctx, canvas.width, canvas.height, colorCalibration);
       }
     }
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    // Convert to Blob URL for fast memory recycling
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95)
+    );
+
+    const dataUrl = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/jpeg', 0.95);
+    canvas.width = canvas.height = 0; // Release canvas memory
+
     setCroppedImageUrl(dataUrl);
     pushUndo();
     setStep('layout');
@@ -141,6 +149,51 @@ export function ImageEditor() {
     selectedTemplateId, selectedTemplateType, adjustments, colorCalibration,
     setCropData, setCroppedImageUrl, pushUndo, setStep
   ]);
+
+  // Keyboard shortcut listener for micro-nudging and quick crop
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      const cropper = cropperRef.current?.cropper;
+      if (!cropper) return;
+
+      const step = e.shiftKey ? 25 : 5;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          cropper.move(-step, 0);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          cropper.move(step, 0);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          cropper.move(0, -step);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          cropper.move(0, step);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          handleCrop();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setStep('upload');
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleCrop, setStep]);
 
   const handleRotate = useCallback((degrees: number) => {
     const cropper = cropperRef.current?.cropper;

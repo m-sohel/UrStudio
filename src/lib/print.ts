@@ -1,29 +1,23 @@
 /**
- * Print Utilities
+ * Print System — HTML generation & browser print trigger
  * 
- * Handles generation of print-ready HTML with CSS physical units (mm).
- * The print system creates an iframe with a clean print-only document.
+ * Generates clean, isolated HTML with exact CSS millimeter units,
+ * print bleed margins, corner crop marks, and zero UI clutter.
  */
 
-import { LayoutPosition } from './layout-engine';
+import type { LayoutPosition } from './layout-engine';
 
 export interface PrintConfig {
-  /** Paper width in mm */
   paperWidth: number;
-  /** Paper height in mm */
   paperHeight: number;
-  /** Paper orientation */
   orientation: 'portrait' | 'landscape';
-  /** Layout positions from the layout engine */
   positions: LayoutPosition[];
-  /** Cropped image data URL or object URL */
   imageUrl: string;
-  /** Item width in mm */
   itemWidth: number;
-  /** Item height in mm */
   itemHeight: number;
-  /** Show subtle cutting guides around photos */
   showCuttingMarks?: boolean;
+  bleedMm?: number;
+  showCropMarks?: boolean;
 }
 
 export interface IDCardPrintConfig {
@@ -32,13 +26,11 @@ export interface IDCardPrintConfig {
   orientation: 'portrait' | 'landscape';
   cardWidth: number;
   cardHeight: number;
-  positions: {
-    front: LayoutPosition;
-    back?: LayoutPosition;
-  }[];
-  frontImageUrl: string;
+  frontImageUrl?: string;
   backImageUrl?: string;
   showCuttingMarks?: boolean;
+  bleedMm?: number;
+  showCropMarks?: boolean;
   /** For PVC direct printing: print only front or back */
   pvcSingleSide?: 'front' | 'back';
 }
@@ -47,28 +39,51 @@ export interface IDCardPrintConfig {
  * Generate the HTML content for the print iframe.
  */
 export function generatePrintHTML(config: PrintConfig): string {
-  const { paperWidth, paperHeight, orientation, positions, imageUrl, itemWidth, itemHeight, showCuttingMarks } = config;
+  const {
+    paperWidth, paperHeight, orientation, positions, imageUrl,
+    itemWidth, itemHeight, showCuttingMarks, bleedMm = 0, showCropMarks = true
+  } = config;
 
   const pageWidth = orientation === 'landscape' ? paperHeight : paperWidth;
   const pageHeight = orientation === 'landscape' ? paperWidth : paperHeight;
   const cellBorder = showCuttingMarks ? 'border: 0.15mm dashed rgba(0,0,0,0.35);' : '';
 
   const photoCells = positions.map((pos) => {
-    return `<div class="photo-cell" style="
+    // Expand by bleed if configured
+    const renderX = pos.x - bleedMm;
+    const renderY = pos.y - bleedMm;
+    const renderW = itemWidth + (bleedMm * 2);
+    const renderH = itemHeight + (bleedMm * 2);
+
+    const cropMarksHtml = showCropMarks ? `
+      <div class="crop-mark tl"></div>
+      <div class="crop-mark tr"></div>
+      <div class="crop-mark bl"></div>
+      <div class="crop-mark br"></div>
+    ` : '';
+
+    return `<div class="photo-cell-wrapper" style="
       position: absolute;
-      left: ${pos.x}mm;
-      top: ${pos.y}mm;
-      width: ${itemWidth}mm;
-      height: ${itemHeight}mm;
-      overflow: hidden;
-      ${cellBorder}
+      left: ${renderX}mm;
+      top: ${renderY}mm;
+      width: ${renderW}mm;
+      height: ${renderH}mm;
     ">
-      <img src="${imageUrl}" style="
+      <div class="photo-cell" style="
         width: 100%;
         height: 100%;
-        object-fit: cover;
-        display: block;
-      " />
+        overflow: hidden;
+        position: relative;
+        ${cellBorder}
+      ">
+        <img src="${imageUrl}" style="
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        " />
+      </div>
+      ${cropMarksHtml}
     </div>`;
   }).join('\n');
 
@@ -120,6 +135,18 @@ export function generatePrintHTML(config: PrintConfig): string {
       display: block;
     }
 
+    /* Corner Crop Marks for Precision Paper Trimmers */
+    .crop-mark {
+      position: absolute;
+      width: 2.5mm;
+      height: 2.5mm;
+      pointer-events: none;
+    }
+    .crop-mark.tl { top: -2.5mm; left: -2.5mm; border-right: 0.2mm solid #666; border-bottom: 0.2mm solid #666; }
+    .crop-mark.tr { top: -2.5mm; right: -2.5mm; border-left: 0.2mm solid #666; border-bottom: 0.2mm solid #666; }
+    .crop-mark.bl { bottom: -2.5mm; left: -2.5mm; border-right: 0.2mm solid #666; border-top: 0.2mm solid #666; }
+    .crop-mark.br { bottom: -2.5mm; right: -2.5mm; border-left: 0.2mm solid #666; border-top: 0.2mm solid #666; }
+
     @media screen {
       body {
         background: #f0f0f0;
@@ -143,104 +170,113 @@ export function generatePrintHTML(config: PrintConfig): string {
 }
 
 /**
- * Generate HTML for ID card printing (front/back or direct PVC card).
+ * Generate print HTML for ID cards.
  */
 export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
   const {
-    paperWidth,
-    paperHeight,
-    orientation,
-    cardWidth,
-    cardHeight,
-    positions,
-    frontImageUrl,
-    backImageUrl,
-    showCuttingMarks,
-    pvcSingleSide,
+    paperWidth, paperHeight, orientation, cardWidth, cardHeight,
+    frontImageUrl, backImageUrl, showCuttingMarks, pvcSingleSide,
+    bleedMm = 0, showCropMarks = true
   } = config;
 
-  // Handle direct PVC single-side printing (CR80 card size)
-  if (pvcSingleSide) {
-    const targetUrl = pvcSingleSide === 'front' ? frontImageUrl : (backImageUrl || frontImageUrl);
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>PVC Card ${pvcSingleSide.toUpperCase()} - CyberCafe Studio</title>
-  <style>
-    @page {
-      size: ${cardWidth}mm ${cardHeight}mm;
-      margin: 0;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 0;
-      width: ${cardWidth}mm;
-      height: ${cardHeight}mm;
-      overflow: hidden;
-    }
-    .pvc-card {
-      width: ${cardWidth}mm;
-      height: ${cardHeight}mm;
-      overflow: hidden;
-    }
-    .pvc-card img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    @media screen {
-      body { background: #f0f0f0; display: flex; justify-content: center; padding: 20px; }
-      .pvc-card { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
-    }
-  </style>
-</head>
-<body>
-  <div class="pvc-card">
-    <img src="${targetUrl}" />
-  </div>
-</body>
-</html>`;
-  }
+  const isPVC = pvcSingleSide !== undefined;
+  const pageWidth = isPVC ? cardWidth : (orientation === 'landscape' ? paperHeight : paperWidth);
+  const pageHeight = isPVC ? cardHeight : (orientation === 'landscape' ? paperWidth : paperHeight);
 
-  // Paper sheet printing
-  const pageWidth = orientation === 'landscape' ? paperHeight : paperWidth;
-  const pageHeight = orientation === 'landscape' ? paperWidth : paperHeight;
-  const cardBorder = showCuttingMarks ? 'border: 0.2mm solid #999; border-radius: 2mm;' : '';
+  let cardCells = '';
 
-  const cardCells = positions.map((pos) => {
-    let html = '';
-    
-    html += `<div class="card-cell" style="
-      position: absolute;
-      left: ${pos.front.x}mm;
-      top: ${pos.front.y}mm;
-      width: ${cardWidth}mm;
-      height: ${cardHeight}mm;
-      overflow: hidden;
-      ${cardBorder}
-    ">
-      <img src="${frontImageUrl}" style="width:100%;height:100%;object-fit:cover;display:block;" />
-    </div>`;
+  if (isPVC) {
+    // Direct PVC Card Single-Side Printing
+    const imgUrl = pvcSingleSide === 'front' ? frontImageUrl : backImageUrl;
+    if (!imgUrl) return '';
 
-    if (pos.back && backImageUrl) {
-      html += `<div class="card-cell" style="
+    cardCells = `
+      <div class="card-cell" style="
         position: absolute;
-        left: ${pos.back.x}mm;
-        top: ${pos.back.y}mm;
+        left: 0;
+        top: 0;
         width: ${cardWidth}mm;
         height: ${cardHeight}mm;
         overflow: hidden;
-        ${cardBorder}
       ">
-        <img src="${backImageUrl}" style="width:100%;height:100%;object-fit:cover;display:block;" />
+        <img src="${imgUrl}" style="
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        " />
       </div>`;
+  } else {
+    // Paper Sheet Printing (Stacked Layout with optional cutting guide)
+    const margin = 10;
+    const gap = 5;
+    const borderStyle = showCuttingMarks
+      ? 'border: 0.2mm dashed rgba(0,0,0,0.4); border-radius: 2mm;'
+      : '';
+
+    const renderW = cardWidth + (bleedMm * 2);
+    const renderH = cardHeight + (bleedMm * 2);
+
+    const cropMarksHtml = showCropMarks ? `
+      <div class="crop-mark tl"></div>
+      <div class="crop-mark tr"></div>
+      <div class="crop-mark bl"></div>
+      <div class="crop-mark br"></div>
+    ` : '';
+
+    if (frontImageUrl) {
+      cardCells += `
+        <div class="card-cell-wrapper" style="
+          position: absolute;
+          left: ${margin - bleedMm}mm;
+          top: ${margin - bleedMm}mm;
+          width: ${renderW}mm;
+          height: ${renderH}mm;
+        ">
+          <div class="card-cell" style="
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            ${borderStyle}
+          ">
+            <img src="${frontImageUrl}" style="
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+            " />
+          </div>
+          ${cropMarksHtml}
+        </div>`;
     }
 
-    return html;
-  }).join('\n');
+    if (backImageUrl) {
+      const backTop = margin + cardHeight + gap;
+      cardCells += `
+        <div class="card-cell-wrapper" style="
+          position: absolute;
+          left: ${margin - bleedMm}mm;
+          top: ${backTop - bleedMm}mm;
+          width: ${renderW}mm;
+          height: ${renderH}mm;
+        ">
+          <div class="card-cell" style="
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            ${borderStyle}
+          ">
+            <img src="${backImageUrl}" style="
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              display: block;
+            " />
+          </div>
+          ${cropMarksHtml}
+        </div>`;
+    }
+  }
 
   return `<!DOCTYPE html>
 <html>
@@ -268,6 +304,33 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
       display: block;
     }
 
+    body {
+      margin: 0;
+      padding: 0;
+      width: ${pageWidth}mm;
+      height: ${pageHeight}mm;
+    }
+
+    .print-page {
+      position: relative;
+      width: ${pageWidth}mm;
+      height: ${pageHeight}mm;
+      overflow: hidden;
+    }
+
+    .card-cell img { display: block; }
+
+    .crop-mark {
+      position: absolute;
+      width: 2.5mm;
+      height: 2.5mm;
+      pointer-events: none;
+    }
+    .crop-mark.tl { top: -2.5mm; left: -2.5mm; border-right: 0.2mm solid #666; border-bottom: 0.2mm solid #666; }
+    .crop-mark.tr { top: -2.5mm; right: -2.5mm; border-left: 0.2mm solid #666; border-bottom: 0.2mm solid #666; }
+    .crop-mark.bl { bottom: -2.5mm; left: -2.5mm; border-right: 0.2mm solid #666; border-top: 0.2mm solid #666; }
+    .crop-mark.br { bottom: -2.5mm; right: -2.5mm; border-left: 0.2mm solid #666; border-top: 0.2mm solid #666; }
+
     @media screen {
       body {
         background: #f0f0f0;
@@ -292,7 +355,7 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
 
 /**
  * Open a print dialog using an iframe.
- * Creates a hidden iframe, writes the print HTML, and triggers print.
+ * Uses native onafterprint event listener to avoid premature removal.
  */
 export function printViaIframe(html: string): void {
   const iframe = document.createElement('iframe');
@@ -317,6 +380,12 @@ export function printViaIframe(html: string): void {
   iframeDoc.write(html);
   iframeDoc.close();
 
+  const cleanup = () => {
+    if (document.body.contains(iframe)) {
+      document.body.removeChild(iframe);
+    }
+  };
+
   // Wait for images to load before printing
   const images = iframeDoc.querySelectorAll('img');
   const imagePromises = Array.from(images).map(img => {
@@ -329,11 +398,16 @@ export function printViaIframe(html: string): void {
 
   Promise.all(imagePromises).then(() => {
     setTimeout(() => {
+      try {
+        iframe.contentWindow?.addEventListener('afterprint', cleanup, { once: true });
+      } catch {
+        // ignore cross-origin if any
+      }
+
       iframe.contentWindow?.print();
-      // Clean up after a delay to allow the print dialog to open
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
+
+      // 60-second safety fallback cleanup in case afterprint does not fire
+      setTimeout(cleanup, 60000);
     }, 250);
   });
 }

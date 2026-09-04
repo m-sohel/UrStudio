@@ -3,6 +3,8 @@
  * 
  * Uses IndexedDB (via idb-keyval) for large data (projects, images)
  * and localStorage for small settings.
+ * 
+ * Includes cascading orphan cleanup and cybercafé privacy wipe utilities.
  */
 
 import { get, set, del, keys, clear } from 'idb-keyval';
@@ -42,7 +44,7 @@ export async function loadCustomIDTemplates<T>(): Promise<T[]> {
 }
 
 // ============================================================
-// Project Storage
+// Project Storage with Orphan Cascade Purge
 // ============================================================
 
 export interface StoredProject {
@@ -57,7 +59,7 @@ export interface StoredProject {
   copies?: number;
   /** Serialized crop data */
   cropData?: string;
-  /** Image stored as data URL (for small images) or blob */
+  /** Image stored as data URL or blob */
   imageData?: string;
   /** Additional metadata */
   metadata?: Record<string, unknown>;
@@ -75,8 +77,15 @@ export async function saveProject(project: StoredProject): Promise<void> {
     customerName: project.customerName,
     updatedAt: project.updatedAt,
   });
-  // Keep only last 20 recent projects
-  await set(STORAGE_KEYS.RECENT_PROJECTS, filtered.slice(0, 20));
+
+  // Keep only last 20 projects, cascade delete dropped project records
+  const kept = filtered.slice(0, 20);
+  const dropped = filtered.slice(20);
+  for (const d of dropped) {
+    await del(`project-${d.id}`);
+  }
+
+  await set(STORAGE_KEYS.RECENT_PROJECTS, kept);
 }
 
 export async function loadProject(id: string): Promise<StoredProject | null> {
@@ -141,15 +150,52 @@ export async function loadCustomPapers<T>(): Promise<T[]> {
 }
 
 // ============================================================
-// Clear Data
+// Storage Health & Privacy Purge
 // ============================================================
 
-export async function clearAllData(): Promise<void> {
-  await clear();
-  localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+export interface StorageHealth {
+  projectCount: number;
+  templateCount: number;
+  totalKeys: number;
+  estimatedBytes: number;
 }
 
-export async function clearProjects(): Promise<void> {
+export async function getStorageHealth(): Promise<StorageHealth> {
+  const allKeys = await keys();
+  let projectCount = 0;
+
+  for (const key of allKeys) {
+    if (typeof key === 'string' && key.startsWith('project-')) {
+      projectCount++;
+    }
+  }
+
+  const customTemplates = await loadCustomTemplates();
+  const customIdTemplates = await loadCustomIDTemplates();
+
+  let estimatedBytes = 0;
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      estimatedBytes = estimate.usage || 0;
+    } catch {
+      estimatedBytes = 0;
+    }
+  }
+
+  return {
+    projectCount,
+    templateCount: customTemplates.length + customIdTemplates.length,
+    totalKeys: allKeys.length,
+    estimatedBytes,
+  };
+}
+
+/**
+ * Privacy Wipe: Purges all customer job records and cached images from IndexedDB,
+ * while preserving user-defined templates.
+ */
+export async function purgeAllCustomerData(): Promise<void> {
   const allKeys = await keys();
   for (const key of allKeys) {
     if (typeof key === 'string' && key.startsWith('project-')) {
@@ -157,6 +203,15 @@ export async function clearProjects(): Promise<void> {
     }
   }
   await del(STORAGE_KEYS.RECENT_PROJECTS);
+}
+
+export async function clearAllData(): Promise<void> {
+  await clear();
+  localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+}
+
+export async function clearProjects(): Promise<void> {
+  await purgeAllCustomerData();
 }
 
 export async function clearTemplates(): Promise<void> {

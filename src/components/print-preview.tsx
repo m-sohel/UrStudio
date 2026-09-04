@@ -14,6 +14,8 @@ import {
 } from '@/lib/templates';
 import { generatePrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
 
+import { useSettingsStore } from '@/store/settings-store';
+
 export function PrintPreview() {
   const {
     croppedImageUrl,
@@ -24,8 +26,10 @@ export function PrintPreview() {
     setStep,
     colorCalibration,
     setColorCalibration,
+    reset,
   } = useEditorStore();
 
+  const settings = useSettingsStore();
   const [zoom, setZoom] = useState(1);
   const [showInstructions, setShowInstructions] = useState(false);
 
@@ -52,10 +56,18 @@ export function PrintPreview() {
       itemWidth: template.width,
       itemHeight: template.height,
       showCuttingMarks: true,
+      bleedMm: settings.defaultBleedMm,
+      showCropMarks: settings.showCropMarks,
     });
 
     printViaIframe(html);
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template]);
+
+    if (settings.autoWipeOnPrint) {
+      setTimeout(() => {
+        reset();
+      }, 500);
+    }
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, reset]);
 
   if (!paper || !layoutResult || !template) {
     return (

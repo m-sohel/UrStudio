@@ -8,6 +8,7 @@ import { loadImage, isSupportedImage, formatFileSize, generateThumbnail, loadIma
 import { isPdfFile, loadPdfPages, pdfPageToEditorImage } from '@/lib/pdf-processor';
 import { useEditorStore, type EditorImage } from '@/store/editor-store';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { PdfPasswordDialog } from '@/components/pdf-password-dialog';
 
 export function ImageUploader() {
   const { addImages, images, removeImage, selectImage, selectedImageIndex, duplicateImage } = useEditorStore();
@@ -16,6 +17,13 @@ export function ImageUploader() {
   const [loadingText, setLoadingText] = useState<string>('Loading...');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [passwordPrompt, setPasswordPrompt] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    resolve?: (pwd: string) => void;
+    reject?: () => void;
+  }>({ isOpen: false, fileName: '' });
 
   const processFiles = useCallback(async (files: FileList | File[]) => {
     setError(null);
@@ -42,6 +50,22 @@ export function ImageUploader() {
           setLoadingText(`Rendering PDF at 300 DPI (${file.name})...`);
           const pages = await loadPdfPages(file, {
             dpi: 300,
+            onRequestPassword: () => {
+              return new Promise<string | null>((resolve) => {
+                setPasswordPrompt({
+                  isOpen: true,
+                  fileName: file.name,
+                  resolve: (pwd) => {
+                    setPasswordPrompt({ isOpen: false, fileName: '' });
+                    resolve(pwd);
+                  },
+                  reject: () => {
+                    setPasswordPrompt({ isOpen: false, fileName: '' });
+                    resolve(null);
+                  },
+                });
+              });
+            },
             onProgress: (curr, total) => {
               setLoadingText(`Rendering PDF page ${curr}/${total}...`);
             }
@@ -317,6 +341,13 @@ export function ImageUploader() {
           if (e.target.files) processFiles(e.target.files);
           e.target.value = '';
         }}
+      />
+
+      <PdfPasswordDialog
+        isOpen={passwordPrompt.isOpen}
+        fileName={passwordPrompt.fileName}
+        onUnlock={(pwd) => passwordPrompt.resolve?.(pwd)}
+        onCancel={() => passwordPrompt.reject?.()}
       />
     </div>
   );

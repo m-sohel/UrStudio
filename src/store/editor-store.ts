@@ -245,26 +245,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     };
   }),
   
-  reset: () => set({
-    images: [],
-    selectedImageIndex: 0,
-    cropData: null,
-    adjustments: { ...DEFAULT_ADJUSTMENTS },
-    rotation: 0,
-    selectedTemplateId: null,
-    layoutResult: null,
-    croppedImageUrl: null,
-    undoStack: [],
-    redoStack: [],
-    step: 'upload',
-    idCardState: {
-      activeSide: 'front',
-      arrangement: 'stacked',
-      frontBackGap: 5,
-      printType: 'sheet',
-      pvcActiveSide: 'front',
-      showCuttingMarks: true,
-    },
-    colorCalibration: { ...DEFAULT_COLOR_CALIBRATION },
-  }),
+  reset: () => {
+    const state = get();
+    // Clean up all active Blob/Object URLs to prevent tab memory leaks
+    state.images.forEach(img => {
+      if (img.objectUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(img.objectUrl);
+      }
+    });
+    if (state.idCardState.frontImage?.objectUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(state.idCardState.frontImage.objectUrl);
+    }
+    if (state.idCardState.backImage?.objectUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(state.idCardState.backImage.objectUrl);
+    }
+    if (state.idCardState.frontCroppedUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(state.idCardState.frontCroppedUrl);
+    }
+    if (state.idCardState.backCroppedUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(state.idCardState.backCroppedUrl);
+    }
+    if (state.croppedImageUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(state.croppedImageUrl);
+    }
+
+    set({
+      images: [],
+      selectedImageIndex: 0,
+      cropData: null,
+      adjustments: { ...DEFAULT_ADJUSTMENTS },
+      rotation: 0,
+      selectedTemplateId: null,
+      layoutResult: null,
+      croppedImageUrl: null,
+      undoStack: [],
+      redoStack: [],
+      step: 'upload',
+      idCardState: {
+        activeSide: 'front',
+        arrangement: 'stacked',
+        frontBackGap: 5,
+        printType: 'sheet',
+        pvcActiveSide: 'front',
+        showCuttingMarks: true,
+      },
+      colorCalibration: { ...DEFAULT_COLOR_CALIBRATION },
+    });
+  },
 }));
