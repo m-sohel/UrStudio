@@ -152,7 +152,7 @@ export function PrintPreview() {
         <Button
           size="sm"
           onClick={handlePrint}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium text-xs"
         >
           <Printer className="w-4 h-4 mr-1.5" />
           Print Now

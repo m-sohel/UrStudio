@@ -101,7 +101,7 @@ export function PdfPasswordDialog({
             <Button type="button" variant="outline" size="sm" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium">
               Unlock & Load
             </Button>
           </DialogFooter>

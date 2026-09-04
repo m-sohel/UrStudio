@@ -338,11 +338,11 @@ export function IDCardMode() {
   return (
     <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
       {/* Top Header Controls */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card flex-wrap gap-2">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/80 backdrop-blur-sm flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-emerald-500" />
-          <h2 className="text-sm font-semibold">{template.name} Mode</h2>
-          <Badge variant="outline" className="text-xs">
+          <CreditCard className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-sm font-semibold tracking-tight">{template.name} Mode</h2>
+          <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-300 bg-cyan-500/10">
             {template.width} × {template.height} mm (CR80)
           </Badge>
         </div>
@@ -352,9 +352,9 @@ export function IDCardMode() {
             variant="ghost"
             size="sm"
             onClick={() => setShowInstructions(!showInstructions)}
-            className="text-xs"
+            className="text-xs hover:bg-accent/40"
           >
-            <Info className="w-3.5 h-3.5 mr-1" />
+            <Info className="w-3.5 h-3.5 mr-1 text-cyan-400" />
             Printer Guide
           </Button>
 
@@ -362,7 +362,7 @@ export function IDCardMode() {
             size="sm"
             onClick={printTab === 'pvc' ? () => handlePrintPVCSide('front') : handlePrintSheet}
             disabled={!idCardState.frontCroppedUrl}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium text-xs sm:text-sm"
           >
             <Printer className="w-4 h-4 mr-1.5" />
             {printTab === 'pvc' ? 'Print PVC (Front)' : 'Print Sheet'}
@@ -460,15 +460,15 @@ export function IDCardMode() {
               />
             ) : (
               <div
-                className="flex flex-col items-center justify-center p-8 text-center cursor-pointer border-2 border-dashed border-muted-foreground/30 rounded-xl m-8 hover:border-primary/50"
+                className="flex flex-col items-center justify-center p-8 text-center cursor-pointer border-2 border-dashed border-border/70 rounded-xl m-8 hover:border-primary/60 transition-colors bg-card/30"
                 onClick={() => activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click()}
               >
-                <CreditCard className="w-12 h-12 text-muted-foreground/50 mb-3" />
-                <p className="text-sm font-medium">Click to upload {activeSide} side image or PDF</p>
+                <CreditCard className="w-12 h-12 text-cyan-400/40 mb-3" />
+                <p className="text-sm font-medium text-foreground">Click to upload {activeSide} side image or PDF</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Supports Photos, Scans, e-Aadhaar, PAN & DL PDFs (JPG, PNG, WEBP, PDF)
                 </p>
-                <p className="text-[11px] text-emerald-500 font-medium mt-2">
+                <p className="text-[11px] text-amber-400 font-medium mt-2 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
                   💡 Tip: Uploading a 2-page e-Aadhaar PDF automatically sets Front & Back!
                 </p>
               </div>
@@ -477,18 +477,18 @@ export function IDCardMode() {
 
           {/* Cropper Toolbar */}
           {activeImage && (
-            <div className="p-3 border-t border-border flex items-center justify-between flex-wrap gap-2">
+            <div className="p-3 border-t border-border bg-card/50 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRotate(-90)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={() => handleRotate(-90)}>
                   <RotateCcw className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRotate(90)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={() => handleRotate(90)}>
                   <RotateCw className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleFlipH}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={handleFlipH}>
                   <FlipHorizontal className="w-3.5 h-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleFlipV}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={handleFlipV}>
                   <FlipVertical className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -496,7 +496,7 @@ export function IDCardMode() {
               <Button
                 size="sm"
                 onClick={handleApplyCrop}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium"
               >
                 <Check className="w-3.5 h-3.5 mr-1" />
                 Apply {activeSide === 'front' ? 'Front' : 'Back'} Crop
@@ -509,26 +509,26 @@ export function IDCardMode() {
         <div className="w-1/2 flex flex-col bg-background overflow-hidden">
           {/* Printing Options Tabs: Sheet vs Direct PVC */}
           <Tabs value={printTab} onValueChange={(v) => setPrintTab(v as 'sheet' | 'pvc')} className="flex flex-col h-full">
-            <div className="p-3 border-b border-border flex items-center justify-between bg-card">
-              <TabsList className="grid grid-cols-2 w-72">
-                <TabsTrigger value="sheet" className="text-xs">
+            <div className="p-3 border-b border-border flex items-center justify-between bg-card/60 backdrop-blur-sm">
+              <TabsList className="grid grid-cols-2 w-72 bg-muted/50">
+                <TabsTrigger value="sheet" className="text-xs data-[state=active]:bg-card data-[state=active]:text-primary font-medium">
                   📄 Paper Sheet (A4 / 4×6)
                 </TabsTrigger>
-                <TabsTrigger value="pvc" className="text-xs">
+                <TabsTrigger value="pvc" className="text-xs data-[state=active]:bg-card data-[state=active]:text-cyan-400 font-medium">
                   💳 PVC Card (1-by-1)
                 </TabsTrigger>
               </TabsList>
 
               <div className="flex items-center gap-2 text-xs">
                 {idCardState.frontCroppedUrl ? (
-                  <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500">Front Cropped ✓</Badge>
+                  <Badge variant="secondary" className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Front Cropped ✓</Badge>
                 ) : (
-                  <Badge variant="outline" className="text-muted-foreground">Front Pending</Badge>
+                  <Badge variant="outline" className="border-border/60 text-muted-foreground">Front Pending</Badge>
                 )}
                 {idCardState.backCroppedUrl ? (
-                  <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500">Back Cropped ✓</Badge>
+                  <Badge variant="secondary" className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Back Cropped ✓</Badge>
                 ) : (
-                  <Badge variant="outline" className="text-muted-foreground">Back Optional</Badge>
+                  <Badge variant="outline" className="border-border/60 text-muted-foreground">Back Optional</Badge>
                 )}
               </div>
             </div>
@@ -536,17 +536,17 @@ export function IDCardMode() {
             {/* TAB 1: Paper Sheet Layout */}
             <TabsContent value="sheet" className="flex-1 flex flex-col overflow-hidden m-0 p-4 space-y-4">
               {/* Sheet Settings Controls */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Paper Size</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Paper Size</Label>
                   <Select
                     value={paperSettings.paperId}
                     onValueChange={(v) => { if (v) setPaperSettings({ paperId: v }); }}
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="h-8.5 text-xs w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="min-w-[240px]">
                       {PAPER_SIZES.filter(p => p.id !== 'pvc-card').map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name} ({p.width}×{p.height}mm)</SelectItem>
                       ))}
@@ -554,36 +554,36 @@ export function IDCardMode() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Arrangement</Label>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Arrangement</Label>
                   <Select
                     value={idCardState.arrangement}
                     onValueChange={(v) => {
                       if (v) setIDCardState({ arrangement: v as typeof idCardState.arrangement });
                     }}
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="h-8.5 text-xs w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="min-w-[270px]">
                       <SelectItem value="stacked">Stacked (Front Top, Back Bottom)</SelectItem>
                       <SelectItem value="side-by-side">Side-by-Side (Front Left, Back Right)</SelectItem>
-                      <SelectItem value="front-only">Front Only</SelectItem>
-                      <SelectItem value="back-only">Back Only</SelectItem>
+                      <SelectItem value="front-only">Front Only (Single Side)</SelectItem>
+                      <SelectItem value="back-only">Back Only (Single Side)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Copies (Sets)</Label>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Copies (Sets)</Label>
                   <Select
                     value={copies.toString()}
                     onValueChange={(v) => { if (v) setCopies(parseInt(v) || 1); }}
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="h-8.5 text-xs w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="min-w-[140px]">
                       {[1, 2, 4, 8, 10].map(c => (
                         <SelectItem key={c} value={c.toString()}>{c} Set{c > 1 ? 's' : ''}</SelectItem>
                       ))}
@@ -593,12 +593,13 @@ export function IDCardMode() {
               </div>
 
               {/* Cutting guides toggle */}
-              <div className="flex items-center justify-between py-1">
+              <div className="flex items-center justify-between py-1 px-1 bg-card/40 rounded-lg border border-border/40">
                 <div className="flex items-center gap-2">
-                  <Scissors className="w-4 h-4 text-muted-foreground" />
-                  <Label className="text-xs">Show Card Cutting Guides (Borders)</Label>
+                  <Scissors className="w-4 h-4 text-cyan-400" />
+                  <Label className="text-xs cursor-pointer" htmlFor="cutting-guide-toggle">Show Card Cutting Guides (Borders)</Label>
                 </div>
                 <Switch
+                  id="cutting-guide-toggle"
                   checked={idCardState.showCuttingMarks}
                   onCheckedChange={(v) => setIDCardState({ showCuttingMarks: v })}
                 />
@@ -676,7 +677,7 @@ export function IDCardMode() {
                   size="sm"
                   onClick={handlePrintSheet}
                   disabled={!idCardState.frontCroppedUrl}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium w-full sm:w-auto"
                 >
                   <Printer className="w-4 h-4 mr-2" />
                   Print on {paper.name} ({sheetLayout.totalSets} Set{sheetLayout.totalSets > 1 ? 's' : ''})
@@ -686,9 +687,9 @@ export function IDCardMode() {
 
             {/* TAB 2: Direct PVC Card Printing (One-by-one) */}
             <TabsContent value="pvc" className="flex-1 flex flex-col overflow-auto m-0 p-5 space-y-6">
-              <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <h3 className="text-sm font-semibold text-emerald-500 flex items-center gap-1.5 mb-1">
-                  <Sparkles className="w-4 h-4" /> PVC Card Direct Printing (One-by-One)
+              <div className="p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/25">
+                <h3 className="text-sm font-semibold text-cyan-400 flex items-center gap-1.5 mb-1">
+                  <Sparkles className="w-4 h-4 text-cyan-400" /> PVC Card Direct Printing (One-by-One)
                 </h3>
                 <p className="text-xs text-muted-foreground">
                   Designed for plastic card printers (Zebra, Evolis, Magicard, Fargo, or Epson PVC Card Trays).
@@ -697,15 +698,15 @@ export function IDCardMode() {
               </div>
 
               {/* Step 1: Front Side */}
-              <Card className="border-border">
+              <Card className="border-border bg-card/60">
                 <CardHeader className="py-3 px-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-semibold flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px]">1</span>
+                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">1</span>
                       Front Side Print
                     </CardTitle>
                     {idCardState.frontCroppedUrl && (
-                      <Badge variant="secondary" className="text-[10px]">Ready to Print</Badge>
+                      <Badge variant="secondary" className="text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Ready to Print</Badge>
                     )}
                   </div>
                 </CardHeader>
@@ -725,7 +726,7 @@ export function IDCardMode() {
                       size="sm"
                       onClick={() => handlePrintPVCSide('front')}
                       disabled={!idCardState.frontCroppedUrl}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium"
                     >
                       <Printer className="w-3.5 h-3.5 mr-1.5" />
                       Print Front Side Now
@@ -735,15 +736,15 @@ export function IDCardMode() {
               </Card>
 
               {/* Step 2: Back Side */}
-              <Card className="border-border">
+              <Card className="border-border bg-card/60">
                 <CardHeader className="py-3 px-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-semibold flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px]">2</span>
+                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">2</span>
                       Back Side Print (After flipping card)
                     </CardTitle>
                     {idCardState.backCroppedUrl && (
-                      <Badge variant="secondary" className="text-[10px]">Ready to Print</Badge>
+                      <Badge variant="secondary" className="text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Ready to Print</Badge>
                     )}
                   </div>
                 </CardHeader>
@@ -763,7 +764,7 @@ export function IDCardMode() {
                       size="sm"
                       onClick={() => handlePrintPVCSide('back')}
                       disabled={!idCardState.backCroppedUrl}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium"
                     >
                       <Printer className="w-3.5 h-3.5 mr-1.5" />
                       Print Back Side Now

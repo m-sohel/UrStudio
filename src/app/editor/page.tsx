@@ -148,41 +148,41 @@ function EditorContent() {
         {/* ====== Top Toolbar ====== */}
         <header className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 mr-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
-              <Printer className="w-4 h-4 text-white" />
+          <Link href="/" className="flex items-center gap-2 mr-3 group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-sky-400 flex items-center justify-center shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+              <Printer className="w-4 h-4 text-slate-950 font-bold" />
             </div>
-            <span className="text-sm font-bold hidden sm:inline">CyberCafe Studio</span>
+            <span className="text-sm font-bold hidden sm:inline tracking-tight text-foreground">CyberCafe Studio</span>
           </Link>
 
           <Separator orientation="vertical" className="h-6" />
 
           {/* Mode Switcher: Photo Mode vs ID Card Mode */}
-          <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border">
+          <div className="flex items-center bg-card/60 p-0.5 rounded-lg border border-border">
             <button
               onClick={() => { setMode('photo'); router.replace('/editor'); }}
               className={`
-                flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors
+                flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all
                 ${effectiveMode === 'photo'
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-accent text-accent-foreground shadow-xs font-semibold'
                   : 'text-muted-foreground hover:text-foreground'
                 }
               `}
             >
-              <Image className="w-3.5 h-3.5" />
+              <Image className="w-3.5 h-3.5 text-cyan-400" />
               Photo Mode
             </button>
             <button
               onClick={() => { setMode('id-card'); router.replace('/editor?mode=id-card'); }}
               className={`
-                flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors
+                flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all
                 ${effectiveMode === 'id-card'
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-accent text-accent-foreground shadow-xs font-semibold'
                   : 'text-muted-foreground hover:text-foreground'
                 }
               `}
             >
-              <CreditCard className="w-3.5 h-3.5" />
+              <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
               ID Card & PVC
             </button>
           </div>
@@ -256,7 +256,7 @@ function EditorContent() {
                   size="sm"
                   onClick={() => setStep('preview')}
                   disabled={!croppedImageUrl}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium text-xs"
                 >
                   <Printer className="w-4 h-4 mr-1" />
                   Print
@@ -339,7 +339,7 @@ function EditorContent() {
                       <Button
                         size="sm"
                         onClick={() => setStep('preview')}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium text-xs"
                       >
                         Preview & Print →
                       </Button>

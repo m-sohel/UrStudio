@@ -266,7 +266,7 @@ export function ImageEditor() {
         <div className="flex-1" />
 
         {colorCalibration.cmykSoftProof && (
-          <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-500 mr-2 flex items-center gap-1">
+          <Badge variant="outline" className="text-[10px] gap-1 border-cyan-500/40 text-cyan-300 bg-cyan-500/10">
             <Eye className="w-3 h-3" /> CMYK Soft-Proof ON
           </Badge>
         )}
@@ -275,7 +275,7 @@ export function ImageEditor() {
           <X className="w-4 h-4 mr-1" />
           Cancel
         </Button>
-        <Button size="sm" onClick={handleCrop} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+        <Button size="sm" onClick={handleCrop} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium">
           <Check className="w-4 h-4 mr-1" />
           Apply Crop
         </Button>
@@ -309,7 +309,7 @@ export function ImageEditor() {
                 <Sliders className="w-3 h-3 mr-1" /> Basic Filters
               </TabsTrigger>
               <TabsTrigger value="color" className="text-xs h-6 px-3">
-                <Printer className="w-3 h-3 mr-1" /> Print & CMYK Color Calibration
+                <Printer className="w-3 h-3 mr-1 text-cyan-400" /> Print & CMYK Color Calibration
               </TabsTrigger>
             </TabsList>
 
@@ -318,9 +318,9 @@ export function ImageEditor() {
                 variant="outline"
                 size="sm"
                 onClick={handleAutoPrintOptimize}
-                className="text-xs h-6 text-emerald-600 border-emerald-500/30"
+                className="text-xs h-6 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"
               >
-                <Sparkles className="w-3 h-3 mr-1 text-emerald-500" />
+                <Sparkles className="w-3 h-3 mr-1 text-cyan-400" />
                 Auto Print Optimize
               </Button>
             )}

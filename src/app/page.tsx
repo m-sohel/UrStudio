@@ -41,14 +41,14 @@ const quickActions = [
     description: 'Direct CR80 plastic card printing',
     icon: CreditCard,
     href: '/editor?mode=id-card',
-    color: 'from-teal-500 to-emerald-500',
+    color: 'from-cyan-600 to-sky-500',
   },
   {
     title: 'Templates & Presets',
     description: 'Manage & create custom sizes',
     icon: LayoutGrid,
     href: '/templates',
-    color: 'from-rose-500 to-pink-500',
+    color: 'from-amber-500 to-orange-500',
   },
 ];
 
@@ -77,14 +77,14 @@ export default function Dashboard() {
     <TooltipProvider>
       <div className="min-h-screen bg-background">
         {/* Header */}
-        <header className="border-b border-border bg-card">
+        <header className="border-b border-border bg-card/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <Printer className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <Printer className="w-5 h-5 text-slate-950 font-bold" />
               </div>
               <div>
-                <h1 className="text-lg font-bold">CyberCafe Studio</h1>
+                <h1 className="text-lg font-bold tracking-tight">CyberCafe Studio</h1>
                 <p className="text-xs text-muted-foreground">Photo & ID Card Printing</p>
               </div>
             </div>
@@ -97,7 +97,7 @@ export default function Dashboard() {
                 </Button>
               </Link>
               <Link href="/editor">
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium">
                   <Printer className="w-4 h-4 mr-2" />
                   New Print Job
                 </Button>
@@ -196,8 +196,8 @@ export default function Dashboard() {
                 {features.map((feat) => (
                   <Card key={feat.title} className="border-border/50">
                     <CardContent className="p-4 flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                        <feat.icon className="w-4 h-4 text-emerald-500" />
+                      <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0 border border-cyan-500/20">
+                        <feat.icon className="w-4 h-4 text-cyan-400" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">{feat.title}</p>

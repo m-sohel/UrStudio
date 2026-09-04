@@ -183,7 +183,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <ShieldCheck className="w-4 h-4 text-cyan-400" />
                 Cybercafé Privacy & Data Security
               </CardTitle>
               <CardDescription>Protect customer Aadhaar, PAN, and identity documents on shared operator PCs</CardDescription>
@@ -225,7 +225,7 @@ export default function SettingsPage() {
                 >
                   {purgeSuccess ? (
                     <>
-                      <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                      <Check className="w-3.5 h-3.5 mr-1 text-cyan-400" />
                       Purged
                     </>
                   ) : (

@@ -106,7 +106,7 @@ export default function TemplatesPage() {
             {/* Create Custom Template Modal */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger>
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium">
                   <Plus className="w-4 h-4 mr-1.5" />
                   Create Custom Template
                 </Button>
@@ -223,7 +223,7 @@ export default function TemplatesPage() {
                   <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(false)} className="text-xs">
                     Cancel
                   </Button>
-                  <Button size="sm" onClick={handleCreateTemplate} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                  <Button size="sm" onClick={handleCreateTemplate} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium">
                     Save Template
                   </Button>
                 </DialogFooter>
@@ -282,12 +282,12 @@ export default function TemplatesPage() {
 
               {customPhotoTemplates.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-emerald-500 uppercase tracking-wider mb-3">
+                  <h3 className="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-3">
                     Your Custom Photo Templates
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {customPhotoTemplates.map((t) => (
-                      <Card key={t.id} className="border-emerald-500/30 bg-emerald-500/5">
+                      <Card key={t.id} className="border-cyan-500/30 bg-cyan-500/5">
                         <CardHeader className="p-4 pb-2">
                           <div className="flex items-center justify-between">
                             <CardTitle className="text-sm font-semibold truncate">{t.name}</CardTitle>
@@ -309,7 +309,7 @@ export default function TemplatesPage() {
                           <Button
                             size="sm"
                             onClick={() => handleUseTemplate(t.id, 'photo')}
-                            className="text-xs h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
                           >
                             Use Preset →
                           </Button>
@@ -357,12 +357,12 @@ export default function TemplatesPage() {
 
               {customIDCardTemplates.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-emerald-500 uppercase tracking-wider mb-3">
+                  <h3 className="text-sm font-semibold text-cyan-400 uppercase tracking-wider mb-3">
                     Your Custom ID Card Templates
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {customIDCardTemplates.map((t) => (
-                      <Card key={t.id} className="border-emerald-500/30 bg-emerald-500/5">
+                      <Card key={t.id} className="border-cyan-500/30 bg-cyan-500/5">
                         <CardHeader className="p-4 pb-2">
                           <div className="flex items-center justify-between">
                             <CardTitle className="text-sm font-semibold truncate">{t.name}</CardTitle>
@@ -384,7 +384,7 @@ export default function TemplatesPage() {
                           <Button
                             size="sm"
                             onClick={() => handleUseTemplate(t.id, 'id-card')}
-                            className="text-xs h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
                           >
                             Print Card →
                           </Button>
