@@ -23,20 +23,22 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   return (
     <Tooltip>
-      <TooltipTrigger>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`h-8 w-8 transition-colors ${className || ''}`}
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-        >
-          {theme === 'dark' ? (
-            <Sun className="w-4 h-4 text-amber-400 hover:text-amber-300 transition-transform rotate-0 scale-100" />
-          ) : (
-            <Moon className="w-4 h-4 text-cyan-600 hover:text-cyan-700 transition-transform rotate-0 scale-100" />
-          )}
-        </Button>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-8 w-8 transition-colors ${className || ''}`}
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          />
+        }
+      >
+        {theme === 'dark' ? (
+          <Sun className="w-4 h-4 text-amber-400 hover:text-amber-300 transition-transform rotate-0 scale-100" />
+        ) : (
+          <Moon className="w-4 h-4 text-cyan-600 hover:text-cyan-700 transition-transform rotate-0 scale-100" />
+        )}
       </TooltipTrigger>
       <TooltipContent>
         {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
