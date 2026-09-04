@@ -6,7 +6,8 @@ import 'react-cropper/node_modules/cropperjs/dist/cropper.css';
 import {
   CreditCard, Upload, Check, Printer, RotateCw, RotateCcw,
   FlipHorizontal, FlipVertical, Sun, Contrast, Palette,
-  Layers, ArrowRight, RefreshCw, Scissors, Info, Sparkles
+  Layers, ArrowRight, RefreshCw, Scissors, Info, Sparkles,
+  FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,7 @@ import {
 } from '@/lib/templates';
 import { calculateIDCardLayout } from '@/lib/layout-engine';
 import { generateIDCardPrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
+import { exportIDCardSheetToPDF, exportPVCCardToPDF } from '@/lib/pdf-exporter';
 import { loadImage, loadImageElement, generateThumbnail, isSupportedImage } from '@/lib/image-processing';
 import { isPdfFile, loadPdfPages, pdfPageToEditorImage } from '@/lib/pdf-processor';
 import { applyPrintColorCalibration } from '@/lib/color-management';
@@ -57,6 +59,7 @@ export function IDCardMode() {
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
   const [printTab, setPrintTab] = useState<'sheet' | 'pvc'>('sheet');
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Adjustments per side
   const [frontAdjustments, setFrontAdjustments] = useState({ brightness: 0, contrast: 0, saturation: 0, grayscale: false });
@@ -301,6 +304,61 @@ export function IDCardMode() {
     printViaIframe(html);
   }, [idCardState, template]);
 
+  // Export Sheet as PDF
+  const handleSaveSheetPDF = useCallback(async () => {
+    if (!idCardState.frontCroppedUrl) {
+      alert('Please crop at least the front side of the ID card.');
+      return;
+    }
+
+    try {
+      setIsExportingPdf(true);
+      await exportIDCardSheetToPDF({
+        paperWidth: paperDims.width,
+        paperHeight: paperDims.height,
+        orientation: paperSettings.orientation,
+        cardWidth: template.width,
+        cardHeight: template.height,
+        positions: sheetLayout.positions,
+        frontImageUrl: idCardState.frontCroppedUrl,
+        backImageUrl: idCardState.backCroppedUrl || undefined,
+        showCuttingMarks: idCardState.showCuttingMarks,
+        bleedMm: settings.defaultBleedMm,
+        showCropMarks: settings.showCropMarks,
+        templateName: template.name,
+      });
+    } catch (err) {
+      console.error('Failed to export ID card sheet PDF:', err);
+      alert('Failed to export PDF. Please check your image data and try again.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [paperDims, paperSettings, template, sheetLayout, idCardState, settings]);
+
+  // Export Direct CR80 PVC Card as PDF
+  const handleSavePVCPDF = useCallback(async () => {
+    if (!idCardState.frontCroppedUrl) {
+      alert('Please crop at least the front side of the ID card first.');
+      return;
+    }
+
+    try {
+      setIsExportingPdf(true);
+      await exportPVCCardToPDF({
+        cardWidth: template.width,
+        cardHeight: template.height,
+        frontImageUrl: idCardState.frontCroppedUrl,
+        backImageUrl: idCardState.backCroppedUrl || undefined,
+        filename: `iPrint_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_CR80_${Date.now()}.pdf`,
+      });
+    } catch (err) {
+      console.error('Failed to export PVC card PDF:', err);
+      alert('Failed to export PVC card PDF. Please try again.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [idCardState, template]);
+
   // Rotate
   const handleRotate = (deg: number) => {
     cropperRef.current?.cropper?.rotate(deg);
@@ -356,6 +414,17 @@ export function IDCardMode() {
           >
             <Info className="w-3.5 h-3.5 mr-1 text-cyan-400" />
             Printer Guide
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={printTab === 'pvc' ? handleSavePVCPDF : handleSaveSheetPDF}
+            disabled={!idCardState.frontCroppedUrl || isExportingPdf}
+            className="text-xs sm:text-sm border-border hover:bg-accent/40"
+          >
+            <FileDown className="w-4 h-4 mr-1.5 text-cyan-400" />
+            {isExportingPdf ? 'Saving PDF...' : 'Save as PDF'}
           </Button>
 
           <Button
@@ -672,7 +741,17 @@ export function IDCardMode() {
                 )}
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveSheetPDF}
+                  disabled={!idCardState.frontCroppedUrl || isExportingPdf}
+                  className="w-full sm:w-auto"
+                >
+                  <FileDown className="w-4 h-4 mr-2 text-cyan-400" />
+                  {isExportingPdf ? 'Generating PDF...' : 'Save Sheet as PDF'}
+                </Button>
                 <Button
                   size="sm"
                   onClick={handlePrintSheet}
@@ -772,6 +851,26 @@ export function IDCardMode() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Full CR80 Card PDF Export */}
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card/60 gap-3 flex-wrap">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Digital PVC Card Document</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Save both front and back sides as an exact 85.6 × 53.98 mm PDF for digital delivery or card printing software
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSavePVCPDF}
+                  disabled={!idCardState.frontCroppedUrl || isExportingPdf}
+                  className="text-xs shrink-0"
+                >
+                  <FileDown className="w-3.5 h-3.5 mr-1.5 text-cyan-400" />
+                  {isExportingPdf ? 'Saving PDF...' : 'Save CR80 PDF'}
+                </Button>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

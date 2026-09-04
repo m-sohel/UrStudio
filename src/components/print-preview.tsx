@@ -2,7 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Printer, ZoomIn, ZoomOut, Maximize, ArrowLeft, Info, Eye
+  Printer, ZoomIn, ZoomOut, Maximize, ArrowLeft, Info, Eye, FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import {
   getPhotoTemplate, getIDCardTemplate,
 } from '@/lib/templates';
 import { generatePrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
+import { exportPhotoLayoutToPDF } from '@/lib/pdf-exporter';
 
 import { useSettingsStore } from '@/store/settings-store';
 
@@ -32,6 +33,7 @@ export function PrintPreview() {
   const settings = useSettingsStore();
   const [zoom, setZoom] = useState(1);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const paper = getPaperSize(paperSettings.paperId);
 
@@ -68,6 +70,32 @@ export function PrintPreview() {
       }, 500);
     }
   }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, reset]);
+
+  const handleSavePDF = useCallback(async () => {
+    if (!paper || !layoutResult || !croppedImageUrl || !template) return;
+
+    try {
+      setIsExportingPdf(true);
+      await exportPhotoLayoutToPDF({
+        paperWidth: paper.width,
+        paperHeight: paper.height,
+        orientation: paperSettings.orientation,
+        positions: layoutResult.positions,
+        imageUrl: croppedImageUrl,
+        itemWidth: template.width,
+        itemHeight: template.height,
+        showCuttingMarks: true,
+        bleedMm: settings.defaultBleedMm,
+        showCropMarks: settings.showCropMarks,
+        filename: `iPrint_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_${paper.name}_${Date.now()}.pdf`,
+      });
+    } catch (err) {
+      console.error('Failed to export photo sheet PDF:', err);
+      alert('Failed to export PDF. Please check your image data and try again.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings]);
 
   if (!paper || !layoutResult || !template) {
     return (
@@ -147,6 +175,17 @@ export function PrintPreview() {
         >
           <Info className="w-4 h-4 mr-1" />
           Print Tips
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSavePDF}
+          disabled={isExportingPdf}
+          className="text-xs border-border hover:bg-accent/40"
+        >
+          <FileDown className="w-4 h-4 mr-1.5 text-cyan-400" />
+          {isExportingPdf ? 'Saving PDF...' : 'Save as PDF'}
         </Button>
 
         <Button
