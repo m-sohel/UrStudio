@@ -90,6 +90,9 @@ export function ImageUploader() {
         addImages(loadedImages);
       }
     } catch (err) {
+      if (err instanceof Error && err.message.includes('cancelled')) {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Failed to process files');
     } finally {
       setIsLoading(false);

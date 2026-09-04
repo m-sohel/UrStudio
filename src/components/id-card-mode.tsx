@@ -151,6 +151,9 @@ export function IDCardMode() {
           }
         }
       } catch (err) {
+        if (err instanceof Error && err.message.includes('cancelled')) {
+          return;
+        }
         alert('Failed to load PDF: ' + (err instanceof Error ? err.message : String(err)));
       }
       return;

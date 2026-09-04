@@ -61,11 +61,11 @@ export async function loadPdfPages(
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-
-  const loadDocumentWithPassword = async (pwd?: string) => {
+  const loadDocument = async (pwd?: string) => {
+    // Generate fresh ArrayBuffer from the file so it can never be detached
+    const freshBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(arrayBuffer),
+      data: new Uint8Array(freshBuffer),
       cMapUrl: '/cmaps/',
       cMapPacked: true,
       password: pwd,
@@ -75,25 +75,32 @@ export async function loadPdfPages(
   };
 
   let pdfDoc;
-  try {
-    pdfDoc = await loadDocumentWithPassword(options?.password);
-  } catch (err: unknown) {
-    const isPassErr =
-      (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'PasswordException') ||
-      (err instanceof Error && err.message.toLowerCase().includes('password'));
+  let currentPassword = options?.password;
 
-    if (isPassErr) {
-      if (options?.onRequestPassword) {
-        const userPassword = await options.onRequestPassword();
-        if (!userPassword) {
-          throw new PasswordRequiredError('Password entry cancelled');
+  while (!pdfDoc) {
+    try {
+      pdfDoc = await loadDocument(currentPassword);
+    } catch (err: unknown) {
+      const isPassErr =
+        (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'PasswordException') ||
+        (err instanceof Error && (
+          err.name === 'PasswordException' ||
+          err.message.toLowerCase().includes('password')
+        ));
+
+      if (isPassErr) {
+        if (options?.onRequestPassword) {
+          const userPassword = await options.onRequestPassword();
+          if (!userPassword) {
+            throw new PasswordRequiredError('Password entry cancelled');
+          }
+          currentPassword = userPassword;
+        } else {
+          throw new PasswordRequiredError('Password required to open this PDF document');
         }
-        pdfDoc = await loadDocumentWithPassword(userPassword);
       } else {
-        throw new PasswordRequiredError();
+        throw err;
       }
-    } else {
-      throw err;
     }
   }
 
