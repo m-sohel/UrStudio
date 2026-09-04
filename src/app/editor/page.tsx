@@ -18,6 +18,7 @@ import { PaperSelector } from '@/components/paper-selector';
 import { LayoutPreview } from '@/components/layout-preview';
 import { PrintPreview } from '@/components/print-preview';
 import { IDCardMode } from '@/components/id-card-mode';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { useEditorStore } from '@/store/editor-store';
 import { getPhotoTemplate, getIDCardTemplate } from '@/lib/templates';
 
@@ -196,6 +197,8 @@ function EditorContent() {
 
           {/* Header Action Buttons */}
           <div className="flex items-center gap-1">
+            <ThemeToggle />
+
             <Link href="/templates">
               <Button variant="ghost" size="sm" className="text-xs">
                 <Bookmark className="w-3.5 h-3.5 mr-1" />

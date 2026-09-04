@@ -441,7 +441,7 @@ export function IDCardMode() {
           </div>
 
           {/* Active Side Cropper or Upload Prompt */}
-          <div className="flex-1 bg-black/40 relative overflow-hidden flex items-center justify-center">
+          <div className="flex-1 bg-muted/40 dark:bg-black/40 relative overflow-hidden flex items-center justify-center">
             {activeImage ? (
               <Cropper
                 key={`${activeSide}-${activeImage.id}`}

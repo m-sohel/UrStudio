@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Trash2, ShieldCheck, HardDrive, Scissors, RotateCcw, AlertTriangle, Check
+  ArrowLeft, Trash2, ShieldCheck, HardDrive, Scissors, RotateCcw, AlertTriangle, Check,
+  Sun, Moon, Monitor
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -70,6 +72,83 @@ export default function SettingsPage() {
         </header>
 
         <main className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+          {/* Appearance & Studio Theme */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sun className="w-4 h-4 text-amber-400" />
+                Appearance & Studio Theme
+              </CardTitle>
+              <CardDescription>Select your preferred color mode for daylight or night printing sessions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => settings.updateSettings({ theme: 'dark' })}
+                  className={`p-3.5 rounded-xl border text-left transition-all flex flex-col gap-2.5 cursor-pointer ${
+                    settings.theme === 'dark'
+                      ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
+                      : 'border-border hover:border-primary/40 hover:bg-muted/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-slate-900 border border-border flex items-center justify-center">
+                      <Moon className="w-3.5 h-3.5 text-cyan-400" />
+                    </div>
+                    {settings.theme === 'dark' && <Badge variant="secondary" className="text-[10px] bg-primary/15 text-primary border border-primary/30">Active</Badge>}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Dark Mode</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Deep Space Navy workspace</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => settings.updateSettings({ theme: 'light' })}
+                  className={`p-3.5 rounded-xl border text-left transition-all flex flex-col gap-2.5 cursor-pointer ${
+                    settings.theme === 'light'
+                      ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
+                      : 'border-border hover:border-primary/40 hover:bg-muted/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                      <Sun className="w-3.5 h-3.5 text-amber-500" />
+                    </div>
+                    {settings.theme === 'light' && <Badge variant="secondary" className="text-[10px] bg-primary/15 text-primary border border-primary/30">Active</Badge>}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Light Mode</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Crisp Ice-Blue studio workspace</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => settings.updateSettings({ theme: 'system' })}
+                  className={`p-3.5 rounded-xl border text-left transition-all flex flex-col gap-2.5 cursor-pointer ${
+                    settings.theme === 'system'
+                      ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
+                      : 'border-border hover:border-primary/40 hover:bg-muted/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-muted border border-border flex items-center justify-center">
+                      <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                    </div>
+                    {settings.theme === 'system' && <Badge variant="secondary" className="text-[10px] bg-primary/15 text-primary border border-primary/30">Active</Badge>}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">System Default</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Sync with OS appearance</p>
+                  </div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Printing Defaults */}
           <Card>
             <CardHeader>
