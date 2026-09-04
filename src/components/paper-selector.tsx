@@ -89,7 +89,7 @@ export function PaperSelector() {
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="min-w-[240px]">
             {PAPER_SIZES.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name} ({p.width}×{p.height}mm)
@@ -144,9 +144,9 @@ export function PaperSelector() {
           <Input
             type="number"
             min={1}
-            max={maxCopies}
+            max={Math.max(1, maxCopies)}
             value={copies}
-            onChange={(e) => setCopies(Math.min(maxCopies, Math.max(1, parseInt(e.target.value) || 1)))}
+            onChange={(e) => setCopies(Math.min(Math.max(1, maxCopies), Math.max(1, parseInt(e.target.value) || 1)))}
             className="h-9 text-center"
           />
           <Button

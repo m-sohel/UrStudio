@@ -7,8 +7,9 @@ import {
   CreditCard, Upload, Check, Printer, RotateCw, RotateCcw,
   FlipHorizontal, FlipVertical, Sun, Contrast, Palette,
   Layers, ArrowRight, RefreshCw, Scissors, Info, Sparkles,
-  FileDown
+  FileDown, Copy, FileText
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,6 +61,13 @@ export function IDCardMode() {
   const [printTab, setPrintTab] = useState<'sheet' | 'pvc'>('sheet');
   const [showInstructions, setShowInstructions] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  // Cached PDF session so all pages from uploaded PDF remain available across front and back
+  const [loadedPdfSession, setLoadedPdfSession] = useState<{
+    fileName: string;
+    file: File;
+    pages: EditorImage[];
+  } | null>(null);
 
   // Adjustments per side
   const [frontAdjustments, setFrontAdjustments] = useState({ brightness: 0, contrast: 0, saturation: 0, grayscale: false });
@@ -129,29 +137,32 @@ export function IDCardMode() {
         });
         if (pages.length === 0) return;
 
-        if (pages.length >= 2) {
+        const editorPages: EditorImage[] = pages.map((p, idx) => {
+          const img = pdfPageToEditorImage(p, file);
+          img.isPdf = true;
+          img.pdfPageNumber = idx + 1;
+          return img;
+        });
+
+        // Retain the entire PDF session so user never needs to re-upload for other sides
+        setLoadedPdfSession({
+          fileName: file.name,
+          file,
+          pages: editorPages,
+        });
+
+        if (editorPages.length >= 2) {
           // Auto assign Page 1 to Front and Page 2 to Back (standard for e-Aadhaar / DL PDF)
-          const frontImg = pdfPageToEditorImage(pages[0], file);
-          frontImg.isPdf = true;
-          frontImg.pdfPageNumber = 1;
-
-          const backImg = pdfPageToEditorImage(pages[1], file);
-          backImg.isPdf = true;
-          backImg.pdfPageNumber = 2;
-
-          setIDCardState({ frontImage: frontImg, backImage: backImg });
-          setActiveSide('front');
+          setIDCardState({ frontImage: editorPages[0], backImage: editorPages[1] });
+          setActiveSide(side);
         } else {
-          const editorImg = pdfPageToEditorImage(pages[0], file);
-          editorImg.isPdf = true;
-          editorImg.pdfPageNumber = 1;
-          if (side === 'front') {
-            setIDCardState({ frontImage: editorImg });
-            setActiveSide('front');
-          } else {
-            setIDCardState({ backImage: editorImg });
-            setActiveSide('back');
-          }
+          // Single-page PDF (like MahaSarathi, Voter ID, Aadhaar slip, PAN card)
+          // Pre-populate both Front and Back with this page so user never needs to re-upload to crop the other side!
+          setIDCardState({
+            frontImage: editorPages[0],
+            backImage: editorPages[0],
+          });
+          setActiveSide(side);
         }
       } catch (err) {
         if (err instanceof Error && err.message.includes('cancelled')) {
@@ -168,7 +179,11 @@ export function IDCardMode() {
     const editorImg: EditorImage = { ...info, thumbnailUrl };
 
     if (side === 'front') {
-      setIDCardState({ frontImage: editorImg });
+      setIDCardState({
+        frontImage: editorImg,
+        // If back image is not set yet, share the same image so user can crop back side without re-uploading
+        backImage: idCardState.backImage || editorImg,
+      });
       setActiveSide('front');
     } else {
       setIDCardState({ backImage: editorImg });
@@ -456,8 +471,8 @@ export function IDCardMode() {
         {/* Left Panel: Upload & Cropping (50%) */}
         <div className="w-1/2 border-r border-border flex flex-col bg-card overflow-hidden">
           {/* Side Selector Tabs (Front vs Back) */}
-          <div className="p-3 border-b border-border flex items-center justify-between gap-2">
-            <div className="flex gap-2">
+          <div className="p-3 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant={activeSide === 'front' ? 'default' : 'outline'}
                 size="sm"
@@ -474,6 +489,37 @@ export function IDCardMode() {
               >
                 Back Side {idCardState.backCroppedUrl && '✓'}
               </Button>
+
+              {/* Quick page switcher if uploaded PDF has multiple pages */}
+              {loadedPdfSession && loadedPdfSession.pages.length > 1 && (
+                <div className="flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-md border border-border text-xs">
+                  <span className="text-[11px] text-muted-foreground font-medium">PDF Page:</span>
+                  {loadedPdfSession.pages.map((p, idx) => {
+                    const isCurrent = activeImage?.pdfPageNumber === idx + 1;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          if (activeSide === 'front') {
+                            setIDCardState({ frontImage: p });
+                          } else {
+                            setIDCardState({ backImage: p });
+                          }
+                        }}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer",
+                          isCurrent
+                            ? "bg-primary text-primary-foreground shadow-xs"
+                            : "bg-card hover:bg-accent text-muted-foreground border border-border/60"
+                        )}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -510,7 +556,7 @@ export function IDCardMode() {
           </div>
 
           {/* Active Side Cropper or Upload Prompt */}
-          <div className="flex-1 bg-muted/40 dark:bg-black/40 relative overflow-hidden flex items-center justify-center">
+          <div className="flex-1 bg-muted/40 dark:bg-black/40 relative overflow-hidden flex items-center justify-center p-4">
             {activeImage ? (
               <Cropper
                 key={`${activeSide}-${activeImage.id}`}
@@ -528,18 +574,64 @@ export function IDCardMode() {
                 zoomOnWheel={true}
               />
             ) : (
-              <div
-                className="flex flex-col items-center justify-center p-8 text-center cursor-pointer border-2 border-dashed border-border/70 rounded-xl m-8 hover:border-primary/60 transition-colors bg-card/30"
-                onClick={() => activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click()}
-              >
-                <CreditCard className="w-12 h-12 text-cyan-400/40 mb-3" />
-                <p className="text-sm font-medium text-foreground">Click to upload {activeSide} side image or PDF</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Supports Photos, Scans, e-Aadhaar, PAN & DL PDFs (JPG, PNG, WEBP, PDF)
-                </p>
-                <p className="text-[11px] text-amber-400 font-medium mt-2 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-                  💡 Tip: Uploading a 2-page e-Aadhaar PDF automatically sets Front & Back!
-                </p>
+              <div className="flex flex-col items-center justify-center max-w-md w-full text-center space-y-4">
+                {activeSide === 'back' && idCardState.frontImage && (
+                  <div className="p-4 rounded-xl bg-card border border-primary/30 shadow-sm w-full space-y-2.5">
+                    <p className="text-xs font-semibold text-foreground">Front document already uploaded!</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      You can crop the back side directly from the uploaded document without re-uploading.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setIDCardState({ backImage: idCardState.frontImage })}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium w-full sm:w-auto"
+                    >
+                      <Copy className="w-3.5 h-3.5 mr-1.5" />
+                      Crop Back Side from Front Document
+                    </Button>
+                  </div>
+                )}
+
+                {loadedPdfSession && loadedPdfSession.pages.length > 1 && (
+                  <div className="p-4 rounded-xl bg-card border border-border shadow-sm w-full space-y-2.5">
+                    <p className="text-xs font-semibold text-foreground">
+                      Select page from uploaded PDF ({loadedPdfSession.fileName}):
+                    </p>
+                    <div className="flex gap-2 flex-wrap justify-center">
+                      {loadedPdfSession.pages.map((p, idx) => (
+                        <Button
+                          key={idx}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (activeSide === 'front') {
+                              setIDCardState({ frontImage: p });
+                            } else {
+                              setIDCardState({ backImage: p });
+                            }
+                          }}
+                          className="text-xs"
+                        >
+                          Page {idx + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  className="w-full flex flex-col items-center justify-center p-8 text-center cursor-pointer border-2 border-dashed border-border/70 rounded-xl hover:border-primary/60 transition-colors bg-card/30"
+                  onClick={() => activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click()}
+                >
+                  <CreditCard className="w-12 h-12 text-cyan-400/40 mb-3" />
+                  <p className="text-sm font-medium text-foreground">Click to upload {activeSide} side image or PDF</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Supports Photos, Scans, e-Aadhaar, PAN & DL PDFs (JPG, PNG, WEBP, PDF)
+                  </p>
+                  <p className="text-[11px] text-amber-400 font-medium mt-2 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                    💡 Tip: Uploading any PDF or scan lets you crop both sides instantly!
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -777,8 +869,8 @@ export function IDCardMode() {
               </div>
 
               {/* Step 1: Front Side */}
-              <Card className="border-border bg-card/60">
-                <CardHeader className="py-3 px-4">
+              <Card className="border-border bg-card/60 shadow-xs">
+                <CardHeader className="py-3 px-4 pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-semibold flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">1</span>
@@ -789,23 +881,23 @@ export function IDCardMode() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 flex items-center justify-between gap-4">
-                  <div className="w-36 h-22 rounded bg-muted overflow-hidden border border-border flex items-center justify-center">
+                <CardContent className="px-4 pb-4 pt-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="w-32 sm:w-36 aspect-[85.6/53.98] rounded-lg bg-muted overflow-hidden border border-border flex items-center justify-center shrink-0 shadow-xs">
                     {idCardState.frontCroppedUrl ? (
                       <img src={idCardState.frontCroppedUrl} alt="Front Card" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-[10px] text-muted-foreground">Upload & Crop Front</span>
+                      <span className="text-[10px] text-muted-foreground p-2 text-center">Upload & Crop Front</span>
                     )}
                   </div>
-                  <div className="flex-1 space-y-2">
-                    <p className="text-xs text-muted-foreground">
+                  <div className="flex-1 space-y-2.5">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       Place blank PVC card into printer tray. Ensure printer paper size is set to CR80 / Card.
                     </p>
                     <Button
                       size="sm"
                       onClick={() => handlePrintPVCSide('front')}
                       disabled={!idCardState.frontCroppedUrl}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium h-8"
                     >
                       <Printer className="w-3.5 h-3.5 mr-1.5" />
                       Print Front Side Now
@@ -815,8 +907,8 @@ export function IDCardMode() {
               </Card>
 
               {/* Step 2: Back Side */}
-              <Card className="border-border bg-card/60">
-                <CardHeader className="py-3 px-4">
+              <Card className="border-border bg-card/60 shadow-xs">
+                <CardHeader className="py-3 px-4 pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-semibold flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">2</span>
@@ -827,23 +919,23 @@ export function IDCardMode() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 flex items-center justify-between gap-4">
-                  <div className="w-36 h-22 rounded bg-muted overflow-hidden border border-border flex items-center justify-center">
+                <CardContent className="px-4 pb-4 pt-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="w-32 sm:w-36 aspect-[85.6/53.98] rounded-lg bg-muted overflow-hidden border border-border flex items-center justify-center shrink-0 shadow-xs">
                     {idCardState.backCroppedUrl ? (
                       <img src={idCardState.backCroppedUrl} alt="Back Card" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-[10px] text-muted-foreground">Upload & Crop Back</span>
+                      <span className="text-[10px] text-muted-foreground p-2 text-center">Upload & Crop Back</span>
                     )}
                   </div>
-                  <div className="flex-1 space-y-2">
-                    <p className="text-xs text-muted-foreground">
+                  <div className="flex-1 space-y-2.5">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       After front side prints, flip the card upside-down in tray, then click Print Back Side.
                     </p>
                     <Button
                       size="sm"
                       onClick={() => handlePrintPVCSide('back')}
                       disabled={!idCardState.backCroppedUrl}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium h-8"
                     >
                       <Printer className="w-3.5 h-3.5 mr-1.5" />
                       Print Back Side Now

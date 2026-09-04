@@ -45,14 +45,14 @@ export function PdfPasswordDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-2">
+      <DialogContent className="sm:max-w-md w-full max-w-[calc(100vw-2rem)] overflow-hidden">
+        <DialogHeader className="min-w-0 pr-6">
+          <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-2 shrink-0">
             <Lock className="w-5 h-5" />
           </div>
-          <DialogTitle className="text-base font-semibold">Password Protected PDF</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground truncate">
-            {fileName} is encrypted. Please enter the password to unlock it.
+          <DialogTitle className="text-base font-semibold text-foreground">Password Protected PDF</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground break-words leading-relaxed mt-1">
+            <span className="font-semibold text-foreground break-all">{fileName}</span> is encrypted. Please enter the password to unlock it.
           </DialogDescription>
         </DialogHeader>
 
@@ -84,16 +84,16 @@ export function PdfPasswordDialog({
             {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
 
-          <div className="p-3 bg-muted/50 rounded-lg border border-border text-xs text-muted-foreground space-y-1">
+          <div className="p-3 bg-muted/50 rounded-lg border border-border text-xs text-muted-foreground space-y-1.5 break-words leading-relaxed">
             <div className="flex items-center gap-1.5 font-medium text-foreground">
-              <Key className="w-3.5 h-3.5 text-primary" />
+              <Key className="w-3.5 h-3.5 text-primary shrink-0" />
               <span>Cybercafé Quick Tip:</span>
             </div>
             <p>
-              • <strong>e-Aadhaar</strong>: First 4 letters of name in CAPITAL + 4-digit Birth Year (e.g. <code>MOHA1995</code>).
+              • <strong>e-Aadhaar</strong>: First 4 letters of name in CAPITAL + 4-digit Birth Year (e.g. <code className="bg-background/80 px-1 py-0.5 rounded border border-border text-[11px] font-mono">MOHA1995</code>).
             </p>
             <p>
-              • <strong>e-PAN Card</strong>: Date of Birth in DDMMYYYY format (e.g. <code>15081992</code>).
+              • <strong>e-PAN Card</strong>: Date of Birth in DDMMYYYY format (e.g. <code className="bg-background/80 px-1 py-0.5 rounded border border-border text-[11px] font-mono">15081992</code>).
             </p>
           </div>
 
