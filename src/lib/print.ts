@@ -91,7 +91,7 @@ export function generatePrintHTML(config: PrintConfig): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Print - CyberCafe Studio</title>
+  <title>Print - UrStudio</title>
   <style>
     @page {
       size: ${pageWidth}mm ${pageHeight}mm;
@@ -282,7 +282,7 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>ID Card Print - CyberCafe Studio</title>
+  <title>ID Card Print - UrStudio</title>
   <style>
     @page {
       size: ${pageWidth}mm ${pageHeight}mm;

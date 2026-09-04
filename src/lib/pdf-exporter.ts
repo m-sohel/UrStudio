@@ -146,10 +146,10 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
   });
 
   doc.setDocumentProperties({
-    title: 'CyberCafe Studio — Photo Print Sheet',
+    title: 'UrStudio — Photo Print Sheet',
     subject: 'Photo Print Sheet',
-    author: 'CyberCafe Studio / iPrint',
-    creator: 'iPrint SaaS Platform',
+    author: 'UrStudio',
+    creator: 'UrStudio SaaS Platform',
   });
 
   const resolvedDataUrl = await resolveImageDataUrl(imageUrl);
@@ -217,10 +217,10 @@ export async function exportIDCardSheetToPDF(config: IDCardSheetPDFConfig): Prom
   });
 
   doc.setDocumentProperties({
-    title: `CyberCafe Studio — ${templateName} Sheet`,
+    title: `UrStudio — ${templateName} Sheet`,
     subject: `${templateName} Sheet`,
-    author: 'CyberCafe Studio / iPrint',
-    creator: 'iPrint SaaS Platform',
+    author: 'UrStudio',
+    creator: 'UrStudio SaaS Platform',
   });
 
   const resolvedFront = await resolveImageDataUrl(frontImageUrl);
@@ -296,10 +296,10 @@ export async function exportPVCCardToPDF(config: PVCCardPDFConfig): Promise<jsPD
   });
 
   doc.setDocumentProperties({
-    title: 'CyberCafe Studio — CR80 PVC Card',
+    title: 'UrStudio — CR80 PVC Card',
     subject: 'CR80 PVC Card',
-    author: 'CyberCafe Studio / iPrint',
-    creator: 'iPrint SaaS Platform',
+    author: 'UrStudio',
+    creator: 'UrStudio SaaS Platform',
   });
 
   const resolvedFront = await resolveImageDataUrl(frontImageUrl);
@@ -312,7 +312,7 @@ export async function exportPVCCardToPDF(config: PVCCardPDFConfig): Promise<jsPD
     doc.addImage(resolvedBack, 'JPEG', 0, 0, cardWidth, cardHeight, undefined, 'FAST');
   }
 
-  const exportName = filename || `iPrint_CR80_PVC_Card_${Date.now()}.pdf`;
+  const exportName = filename || `UrStudio_CR80_PVC_Card_${Date.now()}.pdf`;
   if (typeof window !== 'undefined') {
     doc.save(exportName);
   }

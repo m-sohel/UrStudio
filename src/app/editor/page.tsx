@@ -153,7 +153,7 @@ function EditorContent() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-sky-400 flex items-center justify-center shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
               <Printer className="w-4 h-4 text-slate-950 font-bold" />
             </div>
-            <span className="text-sm font-bold hidden sm:inline tracking-tight text-foreground">CyberCafe Studio</span>
+            <span className="text-sm font-bold hidden sm:inline tracking-tight text-foreground">UrStudio</span>
           </Link>
 
           <Separator orientation="vertical" className="h-6" />
@@ -193,10 +193,7 @@ function EditorContent() {
           {/* Step indicator (active in Photo Mode) */}
           {effectiveMode === 'photo' && <StepIndicator />}
 
-          <div className="flex-1" />
-
-          {/* Header Action Buttons */}
-          <div className="flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
 
             <Link href="/templates">
@@ -209,31 +206,35 @@ function EditorContent() {
             {effectiveMode === 'photo' && (
               <>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={undo}
-                      disabled={undoStack.length === 0}
-                    >
-                      <Undo2 className="w-4 h-4" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={undo}
+                        disabled={undoStack.length === 0}
+                      />
+                    }
+                  >
+                    <Undo2 className="w-4 h-4" />
                   </TooltipTrigger>
                   <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={redo}
-                      disabled={redoStack.length === 0}
-                    >
-                      <Redo2 className="w-4 h-4" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={redo}
+                        disabled={redoStack.length === 0}
+                      />
+                    }
+                  >
+                    <Redo2 className="w-4 h-4" />
                   </TooltipTrigger>
                   <TooltipContent>Redo (Ctrl+Shift+Z)</TooltipContent>
                 </Tooltip>
@@ -241,16 +242,18 @@ function EditorContent() {
                 <Separator orientation="vertical" className="h-6 mx-1" />
 
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setStep('preview')}
-                      disabled={!croppedImageUrl}
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      Preview
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setStep('preview')}
+                        disabled={!croppedImageUrl}
+                      />
+                    }
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Preview
                   </TooltipTrigger>
                   <TooltipContent>Print Preview (Ctrl+P)</TooltipContent>
                 </Tooltip>

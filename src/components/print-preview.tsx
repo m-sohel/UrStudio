@@ -87,7 +87,7 @@ export function PrintPreview() {
         showCuttingMarks: true,
         bleedMm: settings.defaultBleedMm,
         showCropMarks: settings.showCropMarks,
-        filename: `iPrint_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_${paper.name}_${Date.now()}.pdf`,
+        filename: `UrStudio_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_${paper.name}_${Date.now()}.pdf`,
       });
     } catch (err) {
       console.error('Failed to export photo sheet PDF:', err);

@@ -85,7 +85,7 @@ export default function Dashboard() {
                 <Printer className="w-5 h-5 text-slate-950 font-bold" />
               </div>
               <div>
-                <h1 className="text-lg font-bold tracking-tight">CyberCafe Studio</h1>
+                <h1 className="text-lg font-bold tracking-tight">UrStudio</h1>
                 <p className="text-xs text-muted-foreground">Photo & ID Card Printing</p>
               </div>
             </div>
@@ -236,7 +236,7 @@ export default function Dashboard() {
 
         {/* Footer */}
         <footer className="border-t border-border mt-16 py-6 text-center text-xs text-muted-foreground">
-          CyberCafe Studio — Offline-First Photo & ID Card Printing
+          UrStudio — Offline-First Photo & ID Card Printing
           <span className="mx-2">•</span>
           All data processed locally
         </footer>

@@ -364,7 +364,7 @@ export function IDCardMode() {
         cardHeight: template.height,
         frontImageUrl: idCardState.frontCroppedUrl,
         backImageUrl: idCardState.backCroppedUrl || undefined,
-        filename: `iPrint_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_CR80_${Date.now()}.pdf`,
+        filename: `UrStudio_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_CR80_${Date.now()}.pdf`,
       });
     } catch (err) {
       console.error('Failed to export PVC card PDF:', err);

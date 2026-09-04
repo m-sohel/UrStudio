@@ -12,9 +12,9 @@ const geist = Geist({
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "CyberCafe Studio — Photo & ID Card Printing",
+  title: "UrStudio — Photo & ID Card Printing",
   description: "Professional photo and ID card printing solution for cybercafés, photo studios, and printing shops. Upload, crop, layout, and print passport photos, visa photos, ID cards, and more.",
-  keywords: ["photo printing", "passport photo", "id card", "cybercafe", "photo studio", "print layout"],
+  keywords: ["urstudio", "photo printing", "passport photo", "id card", "cybercafe", "photo studio", "print layout"],
 };
 
 export default function RootLayout({
