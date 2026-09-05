@@ -244,7 +244,7 @@ export default function Dashboard() {
 
         {/* Footer */}
         <footer className="border-t border-border mt-16 py-6 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-2">
-          <span>© {new Date().getFullYear()} UrStudio — Offline-First Photo & ID Card Printing</span>
+          <span>© {new Date().getFullYear()} UrStudio - All Rights Reserved</span>
           <span className="hidden sm:inline">•</span>
           <span>
             Crafted by{' '}
@@ -257,8 +257,6 @@ export default function Dashboard() {
               m-sohel
             </a>
           </span>
-          <span className="hidden sm:inline">•</span>
-          <span>All data processed locally</span>
         </footer>
       </div>
     </TooltipProvider>
