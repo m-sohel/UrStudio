@@ -105,12 +105,14 @@ export default function TemplatesPage() {
 
             {/* Create Custom Template Modal */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger>
-                <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium">
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Create Custom Template
-                </Button>
-              </DialogTrigger>
+              <DialogTrigger
+                render={
+                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium">
+                    <Plus className="w-4 h-4 mr-1.5" />
+                    Create Custom Template
+                  </Button>
+                }
+              />
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle>New Custom Template</DialogTitle>
