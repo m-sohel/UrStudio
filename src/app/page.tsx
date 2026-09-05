@@ -2,9 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Printer, Camera, CreditCard, LayoutGrid, Settings,
-  Image, FileImage, ArrowRight, Zap, Shield, Wifi, WifiOff,
+  Image as ImageIcon, FileImage, ArrowRight, Zap, Shield, Wifi, WifiOff,
   Bookmark
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,37 +20,37 @@ const quickActions = [
   {
     title: 'Passport Photo',
     description: '35 × 45mm — Indian/EU standard',
-    icon: Camera,
+    svg: '/svgs/passport-photo.svg',
     href: '/editor?template=passport-photo-india',
-    color: 'from-blue-500 to-cyan-500',
+    bg: 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/25',
   },
   {
     title: 'US Passport / Visa Photo',
     description: '2 × 2 inch — US standard',
-    icon: Image,
+    svg: '/svgs/us-passport.svg',
     href: '/editor?template=passport-photo-us',
-    color: 'from-violet-500 to-purple-500',
+    bg: 'bg-blue-500/10 dark:bg-blue-500/15 border-blue-500/25',
   },
   {
     title: 'ID Card (Sheet Print)',
     description: 'Aadhaar, PAN, DL, Voter ID',
-    icon: CreditCard,
+    svg: '/svgs/id.svg',
     href: '/editor?mode=id-card',
-    color: 'from-amber-500 to-orange-500',
+    bg: 'bg-sky-500/10 dark:bg-sky-500/15 border-sky-500/25',
   },
   {
     title: 'PVC Card (1-by-1)',
     description: 'Direct CR80 plastic card printing',
-    icon: CreditCard,
+    svg: '/svgs/pvc-card.svg',
     href: '/editor?mode=id-card',
-    color: 'from-cyan-600 to-sky-500',
+    bg: 'bg-rose-500/10 dark:bg-rose-500/15 border-rose-500/25',
   },
   {
     title: 'Templates & Presets',
     description: 'Manage & create custom sizes',
-    icon: LayoutGrid,
+    svg: '/svgs/template.svg',
     href: '/templates',
-    color: 'from-amber-500 to-orange-500',
+    bg: 'bg-teal-500/10 dark:bg-teal-500/15 border-teal-500/25',
   },
 ];
 
@@ -128,12 +129,18 @@ export default function Dashboard() {
                   <Card className="group cursor-pointer hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 hover:-translate-y-0.5 h-full border-border/50">
                     <CardContent className="p-5">
                       <div className={`
-                        w-12 h-12 rounded-xl bg-gradient-to-br ${action.color}
-                        flex items-center justify-center mb-4
+                        w-12 h-12 rounded-xl ${action.bg}
+                        flex items-center justify-center p-2 mb-4
                         group-hover:scale-110 transition-transform duration-200
-                        shadow-lg
+                        shadow-sm overflow-hidden
                       `}>
-                        <action.icon className="w-6 h-6 text-white" />
+                        <Image
+                          src={action.svg}
+                          alt={action.title}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-contain"
+                        />
                       </div>
                       <h3 className="text-sm font-semibold mb-1 group-hover:text-primary transition-colors">
                         {action.title}
@@ -158,7 +165,7 @@ export default function Dashboard() {
               {recentProjects.length === 0 ? (
                 <Card className="border-dashed border-border/50">
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                    <Image className="w-10 h-10 text-muted-foreground/30 mb-3" />
+                    <ImageIcon className="w-10 h-10 text-muted-foreground/30 mb-3" />
                     <p className="text-sm text-muted-foreground mb-1">No recent projects</p>
                     <p className="text-xs text-muted-foreground/60">
                       Your print jobs will appear here
@@ -235,10 +242,22 @@ export default function Dashboard() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-border mt-16 py-6 text-center text-xs text-muted-foreground">
-          UrStudio — Offline-First Photo & ID Card Printing
-          <span className="mx-2">•</span>
-          All data processed locally
+        <footer className="border-t border-border mt-16 py-6 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-2">
+          <span>© {new Date().getFullYear()} UrStudio — Offline-First Photo & ID Card Printing</span>
+          <span className="hidden sm:inline">•</span>
+          <span>
+            Crafted by{' '}
+            <a
+              href="https://github.com/m-sohel"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:text-primary font-medium underline underline-offset-4 transition-colors"
+            >
+              m-sohel
+            </a>
+          </span>
+          <span className="hidden sm:inline">•</span>
+          <span>All data processed locally</span>
         </footer>
       </div>
     </TooltipProvider>
