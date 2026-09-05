@@ -23,6 +23,7 @@ import {
 import { useEditorStore } from '@/store/editor-store';
 import {
   type CropData,
+  loadImageElement,
   detectFaceBoundingBox,
   calculateBiometricCropBox,
   replaceImageBackground,
@@ -159,22 +160,27 @@ export function ImageEditor() {
 
     try {
       setIsProcessingBg(true);
-      setBiometricFeedback('Processing client-side background replacement...');
+      setBiometricFeedback('Processing clean background replacement with face/skin lock...');
 
-      const imgElement = (cropper as any).image as HTMLImageElement;
+      // ALWAYS load pristine uncorrupted original image as the base!
+      const baseImg = await loadImageElement(selectedImage.objectUrl);
       const canvas = document.createElement('canvas');
-      canvas.width = imgElement.naturalWidth || imgElement.width;
-      canvas.height = imgElement.naturalHeight || imgElement.height;
+      canvas.width = baseImg.naturalWidth || baseImg.width;
+      canvas.height = baseImg.naturalHeight || baseImg.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      ctx.drawImage(imgElement, 0, 0);
+      ctx.drawImage(baseImg, 0, 0);
+
+      // Detect face box for subject protection
+      const faceBox = await detectFaceBoundingBox(baseImg);
 
       const replacedCanvas = replaceImageBackground(canvas, {
         replacementColor: bgReplacementColor,
         tolerance: bgTolerance,
         feather: bgFeather,
         protectForeground: bgProtectClothing,
+        faceBox: faceBox,
       });
 
       const blob = await new Promise<Blob | null>((resolve) =>
@@ -182,10 +188,16 @@ export function ImageEditor() {
       );
 
       if (blob) {
+        const prevCrop = cropper.getData(true);
         const newUrl = URL.createObjectURL(blob);
         setActiveImageUrl(newUrl);
         cropper.replace(newUrl);
-        setBiometricFeedback('Background updated successfully!');
+        setTimeout(() => {
+          try {
+            if (cropper) cropper.setData(prevCrop);
+          } catch {}
+        }, 150);
+        setBiometricFeedback('Background updated cleanly (subject protected)!');
         setTimeout(() => setBiometricFeedback(null), 3500);
       }
     } catch (err) {
@@ -195,6 +207,23 @@ export function ImageEditor() {
     } finally {
       setIsProcessingBg(false);
     }
+  };
+
+  const handleRevertBackground = () => {
+    if (!selectedImage) return;
+    const cropper = cropperRef.current?.cropper;
+    if (cropper) {
+      const prevCrop = cropper.getData(true);
+      setActiveImageUrl(selectedImage.objectUrl);
+      cropper.replace(selectedImage.objectUrl);
+      setTimeout(() => {
+        try {
+          if (cropper) cropper.setData(prevCrop);
+        } catch {}
+      }, 150);
+    }
+    setBiometricFeedback('Reverted to original photo background');
+    setTimeout(() => setBiometricFeedback(null), 2500);
   };
 
   const handleResetToOriginal = () => {
@@ -578,15 +607,29 @@ export function ImageEditor() {
             )}
 
             {activeTab === 'background' && (
-              <Button
-                size="sm"
-                onClick={handleApplyBackground}
-                disabled={isProcessingBg}
-                className="text-xs h-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-              >
-                <Wand2 className="w-3 h-3 mr-1" />
-                {isProcessingBg ? 'Replacing...' : 'Apply Background'}
-              </Button>
+              <div className="flex items-center gap-2">
+                {activeImageUrl && selectedImage && activeImageUrl !== selectedImage.objectUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRevertBackground}
+                    disabled={isProcessingBg}
+                    className="text-xs h-6 text-muted-foreground hover:text-foreground"
+                  >
+                    <RotateCcwIcon className="w-3 h-3 mr-1" />
+                    Revert BG
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={handleApplyBackground}
+                  disabled={isProcessingBg}
+                  className="text-xs h-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                >
+                  <Wand2 className="w-3 h-3 mr-1" />
+                  {isProcessingBg ? 'Replacing...' : 'Apply Background'}
+                </Button>
+              </div>
             )}
           </div>
 
@@ -707,11 +750,16 @@ export function ImageEditor() {
                 />
               </div>
 
-              {/* Protect Clothing Toggle */}
+              {/* Protect Subject & Skin Lock Toggle */}
               <div className="flex items-center justify-between px-2 pt-1 border-l border-border">
                 <div>
-                  <Label className="text-xs block font-medium">Protect Clothing</Label>
-                  <span className="text-[10px] text-muted-foreground">Only replace outer edges</span>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs block font-medium">Subject & Skin Lock</Label>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/30">
+                      Safe
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">Prevents color leaking to face/body</span>
                 </div>
                 <Switch
                   checked={bgProtectClothing}

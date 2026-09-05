@@ -622,12 +622,14 @@ export interface BackgroundReplaceOptions {
   feather?: number;          // 0 to 10 pixels (default 3)
   sampleX?: number;          // Optional custom pick coordinate
   sampleY?: number;
-  protectForeground?: boolean; // Protect clothes using flood fill from edges
+  protectForeground?: boolean; // Protect subject/skin using flood fill and skin tone lock
+  faceBox?: DetectedFaceBox | null; // Optional detected face box for subject protection
 }
 
 /**
  * Replace background color directly on client-side canvas with zero cloud uploads.
- * Studio White, Passport Blue, Light Gray, or custom hex color.
+ * Uses YCbCr skin tone protection, face bounding barrier, Sobel edge protection,
+ * and edge-connected region growing so foreground (face, skin, clothing) is NEVER ruined.
  */
 export function replaceImageBackground(
   sourceCanvas: HTMLCanvasElement,
@@ -640,6 +642,7 @@ export function replaceImageBackground(
     sampleX,
     sampleY,
     protectForeground = true,
+    faceBox = null,
   } = options;
 
   const width = sourceCanvas.width;
@@ -664,39 +667,120 @@ export function replaceImageBackground(
       repR = parseInt(hex.substring(0, 2), 16) || 255;
       repG = parseInt(hex.substring(2, 4), 16) || 255;
       repB = parseInt(hex.substring(4, 6), 16) || 255;
+    } else if (hex.length === 3) {
+      repR = parseInt(hex[0] + hex[0], 16) || 255;
+      repG = parseInt(hex[1] + hex[1], 16) || 255;
+      repB = parseInt(hex[2] + hex[2], 16) || 255;
     }
   }
 
-  // 1. Identify reference background color
+  // 1. Build Protected Foreground Mask (Skin & Face Barrier)
+  // Ensures skin highlights, cheeks, forehead, neck, and clothing are NEVER painted
+  const isProtectedForeground = new Uint8Array(width * height);
+
+  if (protectForeground) {
+    for (let p = 0; p < width * height; p++) {
+      const idx = p * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+
+      // Convert to YCbCr color space
+      const Y = 0.299 * r + 0.587 * g + 0.114 * b;
+      const Cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+      const Cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+
+      // Human skin chrominance cluster across all skin tones
+      const isSkin = Y >= 30 && Cb >= 75 && Cb <= 135 && Cr >= 130 && Cr <= 180;
+      if (isSkin) {
+        isProtectedForeground[p] = 1;
+      }
+    }
+
+    // If face box is available, protect the entire head & neck ellipse
+    if (faceBox) {
+      const centerX = faceBox.x + faceBox.width / 2;
+      const centerY = faceBox.y + faceBox.height / 2;
+      const rx = faceBox.width * 0.65;
+      const ry = faceBox.height * 0.75;
+
+      const minY = Math.max(0, Math.floor(faceBox.y - faceBox.height * 0.1));
+      const maxY = Math.min(height, Math.ceil(faceBox.y + faceBox.height * 1.25));
+      const minX = Math.max(0, Math.floor(faceBox.x - faceBox.width * 0.15));
+      const maxX = Math.min(width, Math.ceil(faceBox.x + faceBox.width * 1.15));
+
+      for (let y = minY; y < maxY; y++) {
+        for (let x = minX; x < maxX; x++) {
+          const dx = (x - centerX) / rx;
+          const dy = (y - centerY) / ry;
+          if (dx * dx + dy * dy <= 1.0) {
+            isProtectedForeground[y * width + x] = 1;
+          }
+        }
+      }
+
+      // Torso & Neck protection column below face
+      const neckTop = Math.floor(faceBox.y + faceBox.height * 0.7);
+      const neckBottom = Math.min(height, Math.floor(faceBox.y + faceBox.height * 2.0));
+      const torsoLeft = Math.max(0, Math.floor(centerX - faceBox.width * 0.7));
+      const torsoRight = Math.min(width - 1, Math.ceil(centerX + faceBox.width * 0.7));
+
+      for (let y = neckTop; y < neckBottom; y++) {
+        for (let x = torsoLeft; x <= torsoRight; x++) {
+          isProtectedForeground[y * width + x] = 1;
+        }
+      }
+    }
+  }
+
+  // 2. Identify Reference Background Color via Adaptive Multi-Region Sampling
   let refR = 240, refG = 240, refB = 240;
+
   if (sampleX !== undefined && sampleY !== undefined && sampleX >= 0 && sampleX < width && sampleY >= 0 && sampleY < height) {
     const idx = (sampleY * width + sampleX) * 4;
     refR = data[idx];
     refG = data[idx + 1];
     refB = data[idx + 2];
   } else {
-    // Sample corners & top border
+    // Sample outer perimeter (top corners and edges, strictly excluding protected skin)
     const samples: [number, number, number][] = [];
-    const step = Math.max(1, Math.floor(width / 20));
-    for (let x = 0; x < width; x += step) {
-      const idx = (0 * width + x) * 4;
-      samples.push([data[idx], data[idx + 1], data[idx + 2]]);
-    }
-    // Corner pixels
-    const cTL = 0;
-    const cTR = (width - 1) * 4;
-    samples.push([data[cTL], data[cTL + 1], data[cTL + 2]]);
-    samples.push([data[cTR], data[cTR + 1], data[cTR + 2]]);
 
-    // Median color of top edge
-    samples.sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
-    const mid = Math.floor(samples.length / 2);
-    refR = samples[mid][0];
-    refG = samples[mid][1];
-    refB = samples[mid][2];
+    // Sample top corners (10% x 10%)
+    const sampleBoxW = Math.max(2, Math.floor(width * 0.12));
+    const sampleBoxH = Math.max(2, Math.floor(height * 0.10));
+
+    // Top-left corner
+    for (let y = 0; y < sampleBoxH; y++) {
+      for (let x = 0; x < sampleBoxW; x++) {
+        const p = y * width + x;
+        if (isProtectedForeground[p] === 0) {
+          const idx = p * 4;
+          samples.push([data[idx], data[idx + 1], data[idx + 2]]);
+        }
+      }
+    }
+    // Top-right corner
+    for (let y = 0; y < sampleBoxH; y++) {
+      for (let x = width - sampleBoxW; x < width; x++) {
+        const p = y * width + x;
+        if (isProtectedForeground[p] === 0) {
+          const idx = p * 4;
+          samples.push([data[idx], data[idx + 1], data[idx + 2]]);
+        }
+      }
+    }
+
+    if (samples.length > 0) {
+      // Calculate median background color
+      samples.sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
+      const mid = Math.floor(samples.length / 2);
+      refR = samples[mid][0];
+      refG = samples[mid][1];
+      refB = samples[mid][2];
+    }
   }
 
-  // Helper: color distance in perceptual RGB
+  // Helper: perceptual color distance
   const colorDist = (r: number, g: number, b: number): number => {
     const dr = r - refR;
     const dg = g - refG;
@@ -704,74 +788,95 @@ export function replaceImageBackground(
     return Math.sqrt(dr * dr * 0.299 + dg * dg * 0.587 + db * db * 0.114);
   };
 
-  // 2. Identify background pixels
-  const bgMask = new Uint8Array(width * height);
+  // 3. Compute Luminance Edge Barrier (Sobel gradient) to halt flood fill at subject boundaries
+  const edgeBarrier = new Uint8Array(width * height);
+  const step = 1;
+  for (let y = 1; y < height - 1; y += step) {
+    for (let x = 1; x < width - 1; x += step) {
+      // Luminance of neighbors
+      const lum = (px: number, py: number) => {
+        const i = (py * width + px) * 4;
+        return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      };
 
-  if (protectForeground) {
-    // Flood fill from boundaries (top, left, right) to prevent touching clothing of similar color
-    const queue: number[] = [];
+      const gx = -lum(x - 1, y - 1) - 2 * lum(x - 1, y) - lum(x - 1, y + 1)
+                 + lum(x + 1, y - 1) + 2 * lum(x + 1, y) + lum(x + 1, y + 1);
+      const gy = -lum(x - 1, y - 1) - 2 * lum(x, y - 1) - lum(x + 1, y - 1)
+                 + lum(x - 1, y + 1) + 2 * lum(x, y + 1) + lum(x + 1, y + 1);
 
-    // Seed top edge
-    for (let x = 0; x < width; x++) {
-      if (colorDist(data[x * 4], data[x * 4 + 1], data[x * 4 + 2]) <= tolerance * 1.2) {
-        bgMask[x] = 1;
-        queue.push(x);
-      }
-    }
-    // Seed left and right edges
-    for (let y = 1; y < height; y++) {
-      const leftIdx = y * width;
-      const rightIdx = y * width + (width - 1);
-
-      if (colorDist(data[leftIdx * 4], data[leftIdx * 4 + 1], data[leftIdx * 4 + 2]) <= tolerance * 1.2) {
-        bgMask[leftIdx] = 1;
-        queue.push(leftIdx);
-      }
-      if (colorDist(data[rightIdx * 4], data[rightIdx * 4 + 1], data[rightIdx * 4 + 2]) <= tolerance * 1.2) {
-        bgMask[rightIdx] = 1;
-        queue.push(rightIdx);
-      }
-    }
-
-    let head = 0;
-    while (head < queue.length) {
-      const curr = queue[head++];
-      const cx = curr % width;
-      const cy = Math.floor(curr / width);
-
-      const neighbors = [
-        cx > 0 ? curr - 1 : -1,
-        cx < width - 1 ? curr + 1 : -1,
-        cy > 0 ? curr - width : -1,
-        cy < height - 1 ? curr + width : -1,
-      ];
-
-      for (const n of neighbors) {
-        if (n !== -1 && bgMask[n] === 0) {
-          const nDataIdx = n * 4;
-          const dist = colorDist(data[nDataIdx], data[nDataIdx + 1], data[nDataIdx + 2]);
-          if (dist <= tolerance) {
-            bgMask[n] = 1;
-            queue.push(n);
-          }
-        }
-      }
-    }
-  } else {
-    // Global threshold
-    for (let p = 0; p < width * height; p++) {
-      const idx = p * 4;
-      if (colorDist(data[idx], data[idx + 1], data[idx + 2]) <= tolerance) {
-        bgMask[p] = 1;
+      const grad = Math.abs(gx) + Math.abs(gy);
+      if (grad > 75) {
+        edgeBarrier[y * width + x] = 1;
       }
     }
   }
 
-  // 3. Replace background with smooth edge feathering
-  const lowerThresh = tolerance * 0.75;
+  // 4. Edge-Connected Region Growing (BFS Flood Fill)
+  // Background in a portrait MUST be connected to outer borders.
+  // Isolated islands inside the body/face can NEVER be marked as background.
+  const bgMask = new Uint8Array(width * height);
+  const queue: number[] = [];
+
+  // Seed top edge
+  for (let x = 0; x < width; x++) {
+    if (isProtectedForeground[x] === 0 && colorDist(data[x * 4], data[x * 4 + 1], data[x * 4 + 2]) <= tolerance * 1.25) {
+      bgMask[x] = 1;
+      queue.push(x);
+    }
+  }
+  // Seed left and right edges (top 70% of image height)
+  const maxSideY = Math.floor(height * 0.75);
+  for (let y = 1; y < maxSideY; y++) {
+    const leftIdx = y * width;
+    const rightIdx = y * width + (width - 1);
+
+    if (isProtectedForeground[leftIdx] === 0 && colorDist(data[leftIdx * 4], data[leftIdx * 4 + 1], data[leftIdx * 4 + 2]) <= tolerance * 1.25) {
+      bgMask[leftIdx] = 1;
+      queue.push(leftIdx);
+    }
+    if (isProtectedForeground[rightIdx] === 0 && colorDist(data[rightIdx * 4], data[rightIdx * 4 + 1], data[rightIdx * 4 + 2]) <= tolerance * 1.25) {
+      bgMask[rightIdx] = 1;
+      queue.push(rightIdx);
+    }
+  }
+
+  // BFS propagation
+  let head = 0;
+  while (head < queue.length) {
+    const curr = queue[head++];
+    const cx = curr % width;
+    const cy = Math.floor(curr / width);
+
+    const neighbors = [
+      cx > 0 ? curr - 1 : -1,
+      cx < width - 1 ? curr + 1 : -1,
+      cy > 0 ? curr - width : -1,
+      cy < height - 1 ? curr + width : -1,
+    ];
+
+    for (const n of neighbors) {
+      if (n !== -1 && bgMask[n] === 0 && isProtectedForeground[n] === 0) {
+        const nDataIdx = n * 4;
+        const dist = colorDist(data[nDataIdx], data[nDataIdx + 1], data[nDataIdx + 2]);
+
+        // Stop if distance exceeds tolerance or if hitting a strong silhouette boundary
+        if (dist <= tolerance) {
+          if (edgeBarrier[n] === 1 && dist > tolerance * 0.5) {
+            // Edge barrier halts leakage into subject contour
+            continue;
+          }
+          bgMask[n] = 1;
+          queue.push(n);
+        }
+      }
+    }
+  }
+
+  // 5. Replace background with smooth edge feathering
+  const lowerThresh = tolerance * 0.65;
 
   for (let p = 0; p < width * height; p++) {
-    if (bgMask[p] === 1) {
+    if (bgMask[p] === 1 && isProtectedForeground[p] === 0) {
       const idx = p * 4;
       const dist = colorDist(data[idx], data[idx + 1], data[idx + 2]);
 
