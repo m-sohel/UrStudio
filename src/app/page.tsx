@@ -128,19 +128,20 @@ export default function Dashboard() {
                 <Link key={action.title} href={action.href}>
                   <Card className="group cursor-pointer hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 hover:-translate-y-0.5 h-full border-border/50">
                     <CardContent className="p-5">
-                      <div className={`
-                        w-12 h-12 rounded-xl ${action.bg}
-                        flex items-center justify-center p-2 mb-4
-                        group-hover:scale-110 transition-transform duration-200
-                        shadow-sm overflow-hidden
-                      `}>
-                        <Image
-                          src={action.svg}
-                          alt={action.title}
-                          width={40}
-                          height={40}
-                          className="w-full h-full object-contain"
-                        />
+                      <div className="w-12 h-12 mb-4 perspective-800">
+                        <div className={`
+                          w-full h-full rounded-xl ${action.bg}
+                          flex items-center justify-center p-2
+                          shadow-sm overflow-hidden icon-flip-card
+                        `}>
+                          <Image
+                            src={action.svg}
+                            alt={action.title}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
                       </div>
                       <h3 className="text-sm font-semibold mb-1 group-hover:text-primary transition-colors">
                         {action.title}
