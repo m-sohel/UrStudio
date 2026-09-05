@@ -160,7 +160,7 @@ function IDCardTemplateCard({
 }
 
 export function TemplateSelector() {
-  const { selectedTemplateId, setSelectedTemplate, setStep, setMode, setCopies } = useEditorStore();
+  const { images, selectedTemplateId, setSelectedTemplate, setStep, setMode, setCopies } = useEditorStore();
   const { customPhotoTemplates, customIDCardTemplates } = useTemplateStore();
 
   const allPhotoTemplates = [...PHOTO_TEMPLATES, ...customPhotoTemplates];
@@ -170,13 +170,14 @@ export function TemplateSelector() {
     setSelectedTemplate(template.id, 'photo');
     setMode('photo');
     if (template.defaultCopies) setCopies(template.defaultCopies);
-    setStep('crop');
+    if (images.length > 0) {
+      setStep('crop');
+    }
   };
 
   const handleSelectIDCard = (template: IDCardTemplate) => {
     setSelectedTemplate(template.id, 'id-card');
     setMode('id-card');
-    setStep('crop');
   };
 
   return (

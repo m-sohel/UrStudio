@@ -7,7 +7,8 @@ import {
   RotateCw, RotateCcw, FlipHorizontal, FlipVertical,
   Sun, Contrast, Palette, RotateCcwIcon, Check, X,
   Printer, Sparkles, Sliders, ShieldAlert, Eye,
-  UserCheck, ScanFace, Paintbrush, Wand2, RefreshCw, AlertCircle
+  UserCheck, ScanFace, Paintbrush, Wand2, RefreshCw, AlertCircle,
+  Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -388,8 +389,23 @@ export function ImageEditor() {
 
   if (!selectedImage) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        <p>Select an image to edit</p>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/20">
+        <div className="max-w-md w-full p-8 border-2 border-dashed border-border rounded-2xl bg-card shadow-sm flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+            <Upload className="w-7 h-7 text-primary" />
+          </div>
+          <h3 className="text-base font-semibold mb-1">No Image Selected</h3>
+          <p className="text-xs text-muted-foreground mb-5 max-w-xs">
+            Upload a photo or PDF document (e-Aadhaar, PAN card, driving licence) to crop with this template.
+          </p>
+          <Button
+            onClick={() => setStep('upload')}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium"
+          >
+            <Upload className="w-4 h-4 mr-1.5" />
+            Upload Photo / PDF
+          </Button>
+        </div>
       </div>
     );
   }

@@ -150,46 +150,66 @@ export function ImageUploader() {
         <div
           className={`
             flex-1 flex flex-col items-center justify-center
-            border-2 border-dashed rounded-xl p-8 m-4
+            border-2 border-dashed rounded-2xl p-8 m-2 sm:m-6
             transition-all duration-200 cursor-pointer
             ${isDragging
-              ? 'border-primary bg-primary/5 scale-[1.01]'
-              : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
+              ? 'border-primary bg-primary/10 scale-[1.01]'
+              : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-card/60'
             }
           `}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !isLoading && fileInputRef.current?.click()}
         >
-          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-            <Upload className="w-10 h-10 text-primary" />
+          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 shadow-inner">
+            {isLoading ? (
+              <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            ) : (
+              <Upload className="w-10 h-10 text-primary" />
+            )}
           </div>
-          <h3 className="text-lg font-semibold mb-2">
-            {isDragging ? 'Drop images or PDF here' : 'Upload Photos or PDF'}
+          <h3 className="text-xl font-bold mb-2 text-foreground">
+            {isDragging ? 'Drop Photos or PDF Here' : 'Upload Photos or PDF Documents'}
           </h3>
-          <p className="text-muted-foreground text-sm text-center max-w-sm">
-            Drag & drop images or PDFs here, click to browse, or paste from clipboard
-          </p>
-          <p className="text-muted-foreground/70 text-xs mt-2 text-center">
-            Supports JPG, PNG, WEBP & PDF (e-Aadhaar, PAN, Documents) • Max 50MB
+          <p className="text-muted-foreground text-sm text-center max-w-md mb-4">
+            Drag & drop images or PDFs anywhere, click to browse, or paste directly from your clipboard
           </p>
 
-          <div className="flex gap-2 mt-6">
+          {/* Feature Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-6 max-w-md">
+            <span className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+              ⚡ 300 DPI Ultra HD
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
+              🔒 100% Offline & Private
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 font-medium border border-blue-500/20">
+              📄 Multi-Page PDF Support
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 font-medium border border-amber-500/20">
+              🔑 e-Aadhaar & PAN Unlock
+            </span>
+          </div>
+
+          <div className="flex gap-3">
             <Button
-              variant="outline"
-              size="sm"
+              variant="default"
+              size="default"
+              disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
                 fileInputRef.current?.click();
               }}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-orange-500/20"
             >
               <FileImage className="w-4 h-4 mr-2" />
-              Browse Files
+              Browse Files (Photo / PDF)
             </Button>
             <Button
               variant="outline"
-              size="sm"
+              size="default"
+              disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
                 handleCameraCapture();
@@ -201,14 +221,16 @@ export function ImageUploader() {
           </div>
 
           {isLoading && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="mt-6 flex items-center gap-2.5 px-4 py-2 rounded-lg bg-card border border-border shadow-xs text-sm text-foreground">
               <Loader2 className="w-4 h-4 text-primary animate-spin" />
-              <span>{loadingText}</span>
+              <span className="font-medium">{loadingText}</span>
             </div>
           )}
 
           {error && (
-            <p className="mt-4 text-sm text-destructive">{error}</p>
+            <div className="mt-6 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm max-w-md text-center">
+              {error}
+            </div>
           )}
         </div>
       ) : (

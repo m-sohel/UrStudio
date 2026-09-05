@@ -7,7 +7,7 @@ import {
   CreditCard, Upload, Check, Printer, RotateCw, RotateCcw,
   FlipHorizontal, FlipVertical, Sun, Contrast, Palette,
   Layers, ArrowRight, RefreshCw, Scissors, Info, Sparkles,
-  FileDown, Copy, FileText
+  FileDown, Copy, FileText, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,9 @@ export function IDCardMode() {
   const [printTab, setPrintTab] = useState<'sheet' | 'pvc'>('sheet');
   const [showInstructions, setShowInstructions] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState('Processing...');
+  const [isDragging, setIsDragging] = useState(false);
 
   // Cached PDF session so all pages from uploaded PDF remain available across front and back
   const [loadedPdfSession, setLoadedPdfSession] = useState<{
@@ -107,6 +110,26 @@ export function IDCardMode() {
   const activeImage = activeSide === 'front' ? idCardState.frontImage : idCardState.backImage;
   const paper = getPaperSize(paperSettings.paperId) || PAPER_SIZES[0];
 
+  // Handle drag and drop on upload card
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, side: 'front' | 'back') => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleUploadSide(file, side);
+    }
+  }, []);
+
   // Handle uploading front or back file (supports image and PDF)
   const handleUploadSide = async (file: File, side: 'front' | 'back') => {
     if (!isSupportedImage(file) && !isPdfFile(file)) {
@@ -114,10 +137,17 @@ export function IDCardMode() {
       return;
     }
 
-    if (isPdfFile(file)) {
-      try {
+    setIsUploading(true);
+    setUploadStatusText('Processing document...');
+
+    try {
+      if (isPdfFile(file)) {
+        setUploadStatusText(`Rendering PDF at 300 DPI (${file.name})...`);
         const pages = await loadPdfPages(file, {
           dpi: 300,
+          onProgress: (curr, total) => {
+            setUploadStatusText(`Rendering PDF page ${curr}/${total}...`);
+          },
           onRequestPassword: () => {
             return new Promise<string | null>((resolve) => {
               setPasswordPrompt({
@@ -164,30 +194,34 @@ export function IDCardMode() {
           });
           setActiveSide(side);
         }
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('cancelled')) {
-          return;
-        }
-        alert('Failed to load PDF: ' + (err instanceof Error ? err.message : String(err)));
+        return;
       }
-      return;
-    }
 
-    const info = await loadImage(file);
-    const imgEl = await loadImageElement(info.objectUrl);
-    const thumbnailUrl = generateThumbnail(imgEl, 200);
-    const editorImg: EditorImage = { ...info, thumbnailUrl };
+      setUploadStatusText(`Loading image (${file.name})...`);
+      const info = await loadImage(file);
+      const imgEl = await loadImageElement(info.objectUrl);
+      const thumbnailUrl = generateThumbnail(imgEl, 200);
+      const editorImg: EditorImage = { ...info, thumbnailUrl };
 
-    if (side === 'front') {
-      setIDCardState({
-        frontImage: editorImg,
-        // If back image is not set yet, share the same image so user can crop back side without re-uploading
-        backImage: idCardState.backImage || editorImg,
-      });
-      setActiveSide('front');
-    } else {
-      setIDCardState({ backImage: editorImg });
-      setActiveSide('back');
+      if (side === 'front') {
+        setIDCardState({
+          frontImage: editorImg,
+          // If back image is not set yet, share the same image so user can crop back side without re-uploading
+          backImage: idCardState.backImage || editorImg,
+        });
+        setActiveSide('front');
+      } else {
+        setIDCardState({ backImage: editorImg });
+        setActiveSide('back');
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('cancelled')) {
+        return;
+      }
+      console.error('Upload Error:', err);
+      alert('Failed to load file: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -620,17 +654,53 @@ export function IDCardMode() {
                 )}
 
                 <div
-                  className="w-full flex flex-col items-center justify-center p-8 text-center cursor-pointer border-2 border-dashed border-border/70 rounded-xl hover:border-primary/60 transition-colors bg-card/30"
-                  onClick={() => activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click()}
+                  className={cn(
+                    "w-full flex flex-col items-center justify-center p-8 text-center cursor-pointer border-2 border-dashed rounded-xl transition-all bg-card/30",
+                    isDragging
+                      ? "border-primary bg-primary/10 scale-[1.01]"
+                      : "border-border/70 hover:border-primary/60 hover:bg-muted/40"
+                  )}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, activeSide)}
+                  onClick={() => !isUploading && (activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click())}
                 >
-                  <CreditCard className="w-12 h-12 text-cyan-400/40 mb-3" />
-                  <p className="text-sm font-medium text-foreground">Click to upload {activeSide} side image or PDF</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supports Photos, Scans, e-Aadhaar, PAN & DL PDFs (JPG, PNG, WEBP, PDF)
-                  </p>
-                  <p className="text-[11px] text-amber-400 font-medium mt-2 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-                    💡 Tip: Uploading any PDF or scan lets you crop both sides instantly!
-                  </p>
+                  {isUploading ? (
+                    <div className="flex flex-col items-center justify-center py-2 space-y-3">
+                      <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                      <p className="text-sm font-semibold text-foreground">{uploadStatusText}</p>
+                      <p className="text-xs text-muted-foreground">Rendering offline at 300 DPI</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+                        <CreditCard className="w-8 h-8 text-primary" />
+                      </div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {isDragging ? `Drop ${activeSide} document here` : `Click or drag & drop ${activeSide} image or PDF here`}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                        Supports Photos, Scans, e-Aadhaar, PAN & DL PDFs (JPG, PNG, WEBP, PDF) • Max 50MB
+                      </p>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            activeSide === 'front' ? frontInputRef.current?.click() : backInputRef.current?.click();
+                          }}
+                        >
+                          <Upload className="w-3.5 h-3.5 mr-1.5" />
+                          Browse Files
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-amber-400 font-medium mt-3 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                        💡 Tip: Uploading any PDF or scan lets you crop both sides instantly!
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             )}

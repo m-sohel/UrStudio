@@ -32,7 +32,15 @@ export class PasswordRequiredError extends Error {
 
 /** Check if a file is a PDF */
 export function isPdfFile(file: File): boolean {
-  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  if (!file) return false;
+  const name = (file.name || '').toLowerCase();
+  const type = (file.type || '').toLowerCase();
+  return (
+    type === 'application/pdf' ||
+    type === 'application/x-pdf' ||
+    type.includes('pdf') ||
+    name.endsWith('.pdf')
+  );
 }
 
 /**
@@ -56,9 +64,23 @@ export async function loadPdfPages(
   // Dynamically import pdfjs-dist on client side
   const pdfjsLib = await import('pdfjs-dist');
 
-  // Set local worker path from public folder for 100% offline capability
+  // Configure worker with dual-mode support (module workerPort and workerSrc fallback)
   if (typeof window !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    try {
+      if (!pdfjsLib.GlobalWorkerOptions.workerPort && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        if ('Worker' in window) {
+          try {
+            pdfjsLib.GlobalWorkerOptions.workerPort = new Worker('/pdf.worker.min.mjs', { type: 'module' });
+          } catch {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+          }
+        } else {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        }
+      }
+    } catch {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    }
   }
 
   const loadDocument = async (pwd?: string) => {

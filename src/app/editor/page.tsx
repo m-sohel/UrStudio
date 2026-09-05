@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Undo2, Redo2, Save, Printer, Eye, Home,
   Image, CreditCard, Layout, ChevronRight, Layers,
-  Bookmark
+  Bookmark, ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -324,50 +324,84 @@ function EditorContent() {
           <div className="flex-1 flex overflow-hidden">
             {/* Left Sidebar — Templates & Upload */}
             <aside className="w-64 border-r border-border flex flex-col bg-card overflow-hidden flex-shrink-0">
-              {step === 'upload' && images.length === 0 ? (
-                <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  1. Upload Images
-                </div>
-              ) : step === 'upload' || step === 'crop' ? (
-                <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Select Template
-                </div>
+              {images.length === 0 ? (
+                <>
+                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Select Template
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <TemplateSelector />
+                  </div>
+                </>
+              ) : step === 'upload' ? (
+                <>
+                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Uploaded Files ({images.length})
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <ImageUploader />
+                  </div>
+                </>
+              ) : step === 'crop' ? (
+                <>
+                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Select Template
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <TemplateSelector />
+                  </div>
+                </>
               ) : (
-                <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Paper & Layout
-                </div>
+                <>
+                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Paper & Layout
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <PaperSelector />
+                  </div>
+                </>
               )}
-
-              <div className="flex-1 overflow-hidden">
-                {step === 'upload' && images.length === 0 ? (
-                  <ImageUploader />
-                ) : step === 'upload' || step === 'crop' ? (
-                  <TemplateSelector />
-                ) : (
-                  <PaperSelector />
-                )}
-              </div>
             </aside>
 
             {/* Center Canvas */}
             <main className="flex-1 flex flex-col overflow-hidden">
-              {step === 'upload' && images.length > 0 ? (
+              {images.length === 0 ? (
+                <div className="flex-1 flex flex-col p-6 bg-muted/10 overflow-auto">
+                  <ImageUploader />
+                </div>
+              ) : step === 'upload' ? (
                 <div className="flex-1 flex flex-col">
-                  <div className="p-4 text-center">
-                    <h2 className="text-lg font-semibold mb-1">Select a Template</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Choose a photo or ID card template from the sidebar to continue
-                    </p>
+                  <div className="p-4 border-b border-border bg-card/40 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-semibold">Review Uploaded Photo / Document</h2>
+                      <p className="text-xs text-muted-foreground">
+                        Select an image or PDF page from the left sidebar, then proceed to cropping
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => setStep('crop')}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium"
+                    >
+                      Continue to Crop
+                      <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                    </Button>
                   </div>
                   {/* Show selected image preview */}
                   {images[selectedImageIndex] && (
-                    <div className="flex-1 flex items-center justify-center p-4">
-                      <img
-                        src={images[selectedImageIndex].objectUrl}
-                        alt="Selected"
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                        style={{ maxHeight: 'calc(100vh - 250px)' }}
-                      />
+                    <div className="flex-1 flex items-center justify-center p-6 bg-muted/30">
+                      <div className="relative max-w-xl max-h-full flex items-center justify-center">
+                        <img
+                          src={images[selectedImageIndex].objectUrl}
+                          alt="Selected"
+                          className="max-w-full max-h-full object-contain rounded-xl shadow-xl border border-border"
+                          style={{ maxHeight: 'calc(100vh - 280px)' }}
+                        />
+                        {images[selectedImageIndex].isPdf && (
+                          <div className="absolute top-3 left-3 bg-red-600/90 backdrop-blur-xs text-white text-xs px-2.5 py-1 rounded-md font-mono font-medium shadow">
+                            PDF Page {images[selectedImageIndex].pdfPageNumber || 1}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
