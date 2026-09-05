@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Printer, Camera, CreditCard, LayoutGrid, Settings,
-  Image as ImageIcon, FileImage, ArrowRight, Zap, Shield, Wifi, WifiOff,
+  Image as ImageIcon, FileImage, ArrowRight, Keyboard,
   Bookmark
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -51,24 +51,6 @@ const quickActions = [
     svg: '/svgs/template.svg',
     href: '/templates',
     bg: 'bg-teal-500/10 dark:bg-teal-500/15 border-teal-500/25',
-  },
-];
-
-const features = [
-  {
-    icon: Zap,
-    title: 'Lightning Fast',
-    desc: 'Upload → Crop → Print in seconds',
-  },
-  {
-    icon: Shield,
-    title: 'Privacy First',
-    desc: 'All processing happens locally',
-  },
-  {
-    icon: WifiOff,
-    title: 'Works Offline',
-    desc: 'No internet needed for core features',
   },
 ];
 
@@ -206,45 +188,32 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Features / Info */}
+            {/* Keyboard Shortcuts */}
             <div>
-              <h2 className="text-lg font-semibold mb-4">Features</h2>
-              <div className="space-y-3">
-                {features.map((feat) => (
-                  <Card key={feat.title} className="border-border/50">
-                    <CardContent className="p-4 flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0 border border-cyan-500/20">
-                        <feat.icon className="w-4 h-4 text-cyan-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{feat.title}</p>
-                        <p className="text-xs text-muted-foreground">{feat.desc}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="flex items-center gap-2 mb-4">
+                <Keyboard className="w-4 h-4 text-primary" />
+                <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
               </div>
-
-              <Separator className="my-6" />
-
-              {/* Keyboard shortcuts quick ref */}
-              <h3 className="text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
-              <div className="space-y-1.5 text-xs">
-                {[
-                  ['Ctrl+O', 'Upload'],
-                  ['Ctrl+Z', 'Undo'],
-                  ['Ctrl+Shift+Z', 'Redo'],
-                  ['Ctrl+P', 'Print'],
-                  ['Esc', 'Back / Cancel'],
-                ].map(([key, action]) => (
-                  <div key={key} className="flex items-center justify-between">
-                    <span className="text-muted-foreground">{action}</span>
-                    <kbd className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px] font-mono">
-                      {key}
-                    </kbd>
+              <Card className="border-border/50">
+                <CardContent className="p-4">
+                  <div className="space-y-3 text-xs">
+                    {[
+                      ['Ctrl + O', 'Upload Image or PDF'],
+                      ['Ctrl + Z', 'Undo Last Action'],
+                      ['Ctrl + Shift + Z', 'Redo Action'],
+                      ['Ctrl + P', 'Print Layout / Export'],
+                      ['Esc', 'Back / Cancel Dialog'],
+                    ].map(([key, action]) => (
+                      <div key={key} className="flex items-center justify-between py-1.5 border-b border-border/40 last:border-0">
+                        <span className="text-muted-foreground font-medium">{action}</span>
+                        <kbd className="px-2 py-1 rounded bg-muted text-foreground text-[11px] font-mono border border-border/70 shadow-2xs font-semibold">
+                          {key}
+                        </kbd>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </main>
