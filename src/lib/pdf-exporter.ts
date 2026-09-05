@@ -25,7 +25,9 @@ export interface BasePDFConfig {
 
 export interface PhotoSheetPDFConfig extends BasePDFConfig {
   positions: LayoutPosition[];
-  imageUrl: string;
+  imageUrl?: string;
+  /** Optional per-slot specific images for multi-customer mix & match export */
+  slots?: { position: LayoutPosition; imageUrl: string }[];
   itemWidth: number;
   itemHeight: number;
 }
@@ -126,6 +128,7 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
     orientation = 'portrait',
     positions,
     imageUrl,
+    slots,
     itemWidth,
     itemHeight,
     showCuttingMarks = false,
@@ -152,16 +155,30 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
     creator: 'UrStudio SaaS Platform',
   });
 
-  const resolvedDataUrl = await resolveImageDataUrl(imageUrl);
+  const itemsToRender = slots && slots.length > 0
+    ? slots
+    : positions.map((pos) => ({ position: pos, imageUrl: imageUrl || '' }));
 
-  for (const pos of positions) {
+  // Cache resolved data URLs so multiple copies of the same customer image aren't fetched repeatedly
+  const resolvedCache = new Map<string, string>();
+  for (const item of itemsToRender) {
+    if (item.imageUrl && !resolvedCache.has(item.imageUrl)) {
+      resolvedCache.set(item.imageUrl, await resolveImageDataUrl(item.imageUrl));
+    }
+  }
+
+  for (const item of itemsToRender) {
+    const pos = item.position;
+    const cellImg = resolvedCache.get(item.imageUrl) || '';
+    if (!cellImg) continue;
+
     const renderX = pos.x - bleedMm;
     const renderY = pos.y - bleedMm;
     const renderW = itemWidth + bleedMm * 2;
     const renderH = itemHeight + bleedMm * 2;
 
     // Render photo
-    doc.addImage(resolvedDataUrl, 'JPEG', renderX, renderY, renderW, renderH, undefined, 'FAST');
+    doc.addImage(cellImg, 'JPEG', renderX, renderY, renderW, renderH, undefined, 'FAST');
 
     // Cutting border
     if (showCuttingMarks) {

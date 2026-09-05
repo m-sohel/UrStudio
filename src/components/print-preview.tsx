@@ -2,7 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Printer, ZoomIn, ZoomOut, Maximize, ArrowLeft, Info, Eye, FileDown
+  Printer, ZoomIn, ZoomOut, Maximize, ArrowLeft, Info, Eye, FileDown, Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import {
   getPaperSize, getEffectivePaperDimensions,
   getPhotoTemplate, getIDCardTemplate,
 } from '@/lib/templates';
+import { mapMultiCustomerSlots, type MultiCustomerPhotoItem } from '@/lib/layout-engine';
 import { generatePrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
 import { exportPhotoLayoutToPDF } from '@/lib/pdf-exporter';
 
@@ -20,6 +21,7 @@ import { useSettingsStore } from '@/store/settings-store';
 export function PrintPreview() {
   const {
     croppedImageUrl,
+    images,
     layoutResult,
     paperSettings,
     selectedTemplateId,
@@ -27,6 +29,8 @@ export function PrintPreview() {
     setStep,
     colorCalibration,
     setColorCalibration,
+    mixMatchMode,
+    slotOverrides,
     reset,
   } = useEditorStore();
 
@@ -44,17 +48,47 @@ export function PrintPreview() {
       : getIDCardTemplate(selectedTemplateId);
   }, [selectedTemplateId, selectedTemplateType]);
 
+  // Candidates for multi-customer sheet
+  const customerItems: MultiCustomerPhotoItem[] = useMemo(() => {
+    return images
+      .filter((img) => img.croppedImageUrl || img.objectUrl)
+      .map((img) => ({
+        id: img.id,
+        name: img.name.replace(/\.[^/.]+$/, ''),
+        imageUrl: img.croppedImageUrl || img.objectUrl,
+        copies: img.copies || 4,
+      }));
+  }, [images]);
+
+  // Compute multi-customer mapped slots
+  const mappedSlots = useMemo(() => {
+    if (!layoutResult || customerItems.length === 0) return [];
+    if (!mixMatchMode || customerItems.length <= 1) {
+      return layoutResult.positions.map((pos, idx) => ({
+        position: pos,
+        slotIndex: idx,
+        imageId: customerItems[0]?.id || 'default',
+        imageName: customerItems[0]?.name || 'Photo',
+        imageUrl: croppedImageUrl || customerItems[0]?.imageUrl || '',
+        customerIndex: 0,
+      }));
+    }
+    return mapMultiCustomerSlots(layoutResult.positions, customerItems, slotOverrides);
+  }, [layoutResult, customerItems, mixMatchMode, croppedImageUrl, slotOverrides]);
+
   const handlePrint = useCallback(() => {
-    if (!paper || !layoutResult || !croppedImageUrl || !template) return;
+    if (!paper || !layoutResult || !template) return;
 
     const dims = getEffectivePaperDimensions(paper, paperSettings.orientation);
+    const slotsPayload = mappedSlots.map((s) => ({ position: s.position, imageUrl: s.imageUrl }));
 
     const html = generatePrintHTML({
       paperWidth: dims.width,
       paperHeight: dims.height,
       orientation: paperSettings.orientation,
       positions: layoutResult.positions,
-      imageUrl: croppedImageUrl,
+      imageUrl: croppedImageUrl || customerItems[0]?.imageUrl || '',
+      slots: mixMatchMode ? slotsPayload : undefined,
       itemWidth: template.width,
       itemHeight: template.height,
       showCuttingMarks: true,
@@ -69,19 +103,22 @@ export function PrintPreview() {
         reset();
       }, 500);
     }
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, reset]);
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems, reset]);
 
   const handleSavePDF = useCallback(async () => {
-    if (!paper || !layoutResult || !croppedImageUrl || !template) return;
+    if (!paper || !layoutResult || !template) return;
 
     try {
       setIsExportingPdf(true);
+      const slotsPayload = mappedSlots.map((s) => ({ position: s.position, imageUrl: s.imageUrl }));
+
       await exportPhotoLayoutToPDF({
         paperWidth: paper.width,
         paperHeight: paper.height,
         orientation: paperSettings.orientation,
         positions: layoutResult.positions,
-        imageUrl: croppedImageUrl,
+        imageUrl: croppedImageUrl || customerItems[0]?.imageUrl || '',
+        slots: mixMatchMode ? slotsPayload : undefined,
         itemWidth: template.width,
         itemHeight: template.height,
         showCuttingMarks: true,
@@ -95,7 +132,7 @@ export function PrintPreview() {
     } finally {
       setIsExportingPdf(false);
     }
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings]);
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems]);
 
   if (!paper || !layoutResult || !template) {
     return (
@@ -133,6 +170,11 @@ export function PrintPreview() {
           <Badge variant="secondary">
             {layoutResult.totalItems} copies
           </Badge>
+          {mixMatchMode && (
+            <Badge variant="outline" className="gap-1 border-primary/40 text-primary">
+              <Users className="w-3 h-3" /> Mix & Match ({customerItems.length} Customers)
+            </Badge>
+          )}
         </div>
 
         <Separator orientation="vertical" className="h-6 mx-2" />
@@ -226,25 +268,32 @@ export function PrintPreview() {
             border: colorCalibration.cmykSoftProof ? '1px solid #e0dbd1' : '1px solid #e5e7eb',
           }}
         >
-          {layoutResult.positions.map((pos, i) => (
+          {mappedSlots.map((slot, i) => (
             <div
               key={i}
               className="absolute overflow-hidden border border-dashed border-gray-400/40"
               style={{
-                left: `${pos.x * scale}px`,
-                top: `${pos.y * scale}px`,
-                width: `${pos.width * scale}px`,
-                height: `${pos.height * scale}px`,
+                left: `${slot.position.x * scale}px`,
+                top: `${slot.position.y * scale}px`,
+                width: `${slot.position.width * scale}px`,
+                height: `${slot.position.height * scale}px`,
                 filter: colorCalibration.cmykSoftProof ? 'contrast(0.97) saturate(0.96)' : 'none',
               }}
             >
-              {croppedImageUrl ? (
-                <img
-                  src={croppedImageUrl}
-                  alt={`Copy ${i + 1}`}
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
+              {slot.imageUrl ? (
+                <div className="w-full h-full relative">
+                  <img
+                    src={slot.imageUrl}
+                    alt={`Copy ${i + 1}`}
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
+                  {mixMatchMode && (
+                    <span className="absolute top-1 left-1 bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                      #{slot.customerIndex + 1}
+                    </span>
+                  )}
+                </div>
               ) : (
                 <div className="w-full h-full bg-gray-100 border border-gray-200 flex items-center justify-center">
                   <span className="text-xs text-gray-400">{i + 1}</span>

@@ -41,23 +41,52 @@ function PhotoTemplateCard({
       className={`
         w-full text-left p-3 rounded-lg border transition-all
         ${isSelected
-          ? 'border-primary bg-primary/10 shadow-sm shadow-primary/20'
+          ? 'border-primary bg-primary/10 shadow-sm shadow-primary/20 ring-1 ring-primary/30'
           : 'border-border hover:border-primary/40 hover:bg-muted/50'
         }
       `}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <div className={`
-          w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+          w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5
           ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}
         `}>
           {iconMap[template.icon || 'image'] || <Image className="w-5 h-5" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{template.name}</p>
-          <p className="text-xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-sm font-medium truncate">{template.name}</p>
+            {template.country && template.country !== 'GLOBAL' && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.2 bg-muted text-muted-foreground rounded">
+                {template.country}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mb-1.5">
             {formatTemplateDimensions(template)}
           </p>
+
+          {/* Visual Guideline Badges */}
+          {template.guidelineBadges && template.guidelineBadges.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {template.guidelineBadges.slice(0, 3).map((badge, idx) => (
+                <span
+                  key={idx}
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                    badge.includes('White BG')
+                      ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                      : badge.includes('Blue BG')
+                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                      : badge.includes('Face')
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-muted text-muted-foreground/80'
+                  }`}
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {!template.builtIn && (
           <Badge variant="outline" className="text-[10px] flex-shrink-0">Custom</Badge>
@@ -82,25 +111,44 @@ function IDCardTemplateCard({
       className={`
         w-full text-left p-3 rounded-lg border transition-all
         ${isSelected
-          ? 'border-primary bg-primary/10 shadow-sm shadow-primary/20'
+          ? 'border-primary bg-primary/10 shadow-sm shadow-primary/20 ring-1 ring-primary/30'
           : 'border-border hover:border-primary/40 hover:bg-muted/50'
         }
       `}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <div className={`
-          w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+          w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5
           ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}
         `}>
           {iconMap[template.icon || 'credit-card'] || <CreditCard className="w-5 h-5" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{template.name}</p>
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-sm font-medium truncate">{template.name}</p>
+            {template.country && template.country !== 'GLOBAL' && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.2 bg-muted text-muted-foreground rounded">
+                {template.country}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             {formatTemplateDimensions(template)}
+            {template.hasBackSide && ' • Front & Back'}
           </p>
-          {template.hasBackSide && (
-            <p className="text-[10px] text-muted-foreground/70">Front & Back</p>
+
+          {/* Visual Guideline Badges */}
+          {template.guidelineBadges && template.guidelineBadges.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {template.guidelineBadges.slice(0, 3).map((badge, idx) => (
+                <span
+                  key={idx}
+                  className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground/80"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
           )}
         </div>
         {!template.builtIn && (

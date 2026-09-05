@@ -20,6 +20,7 @@ import { LayoutPreview } from '@/components/layout-preview';
 import { PrintPreview } from '@/components/print-preview';
 import { IDCardMode } from '@/components/id-card-mode';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { PwaInstaller } from '@/components/pwa-installer';
 import { useEditorStore } from '@/store/editor-store';
 import { getPhotoTemplate, getIDCardTemplate } from '@/lib/templates';
 
@@ -75,13 +76,16 @@ function EditorContent() {
   const {
     step, setStep,
     images, selectedImageIndex,
-    selectedTemplateId, setSelectedTemplate,
+    selectedTemplateId, selectedTemplateType, setSelectedTemplate,
     croppedImageUrl,
     undo, redo, undoStack, redoStack,
     mode, setMode,
   } = useEditorStore();
 
   const effectiveMode = modeParam === 'id-card' || mode === 'id-card' ? 'id-card' : 'photo';
+  const activeDoc = selectedTemplateId
+    ? (selectedTemplateType === 'photo' ? getPhotoTemplate(selectedTemplateId) : getIDCardTemplate(selectedTemplateId))
+    : null;
 
   // Read URL query params on mount
   useEffect(() => {
@@ -202,6 +206,7 @@ function EditorContent() {
           {effectiveMode === 'photo' && <StepIndicator />}
 
           <div className="ml-auto flex items-center gap-1">
+            <PwaInstaller />
             <ThemeToggle />
 
             <Link href="/templates">
@@ -279,6 +284,36 @@ function EditorContent() {
             )}
           </div>
         </header>
+        
+        {/* Active Template Official Guidelines Strip */}
+        {activeDoc && (
+          <div className="bg-card/70 border-b border-border/80 px-4 py-1.5 flex items-center justify-between text-xs flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground">{activeDoc.name}</span>
+              <span className="text-muted-foreground">({activeDoc.width} × {activeDoc.height} mm)</span>
+            </div>
+            {activeDoc.guidelineBadges && activeDoc.guidelineBadges.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {activeDoc.guidelineBadges.map((badge, i) => (
+                  <span
+                    key={i}
+                    className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                      badge.includes('White BG')
+                        ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                        : badge.includes('Blue BG')
+                        ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                        : badge.includes('Face')
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-muted border border-border text-muted-foreground'
+                    }`}
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ====== Main Content Area ====== */}
         {effectiveMode === 'id-card' ? (

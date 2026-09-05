@@ -24,6 +24,7 @@ export interface EditorImage extends ImageInfo {
   croppedImageUrl?: string;
   isPdf?: boolean;
   pdfPageNumber?: number;
+  copies?: number; // Target copies in mix-and-match
 }
 
 export interface IDCardState {
@@ -53,6 +54,10 @@ interface EditorState {
   // Images
   images: EditorImage[];
   selectedImageIndex: number;
+  
+  // Multi-Customer Mix & Match
+  mixMatchMode: boolean;
+  slotOverrides: Record<number, string>; // slot index -> imageId
   
   // Crop & adjustments
   cropData: CropData | null;
@@ -84,6 +89,10 @@ interface EditorState {
   // Actions
   setMode: (mode: EditorMode) => void;
   setStep: (step: EditorStep) => void;
+  setMixMatchMode: (enabled: boolean) => void;
+  setImageCopies: (index: number, copies: number) => void;
+  setSlotOverride: (slotIndex: number, imageId: string) => void;
+  resetSlotOverrides: () => void;
   addImages: (images: EditorImage[]) => void;
   removeImage: (index: number) => void;
   selectImage: (index: number) => void;
@@ -112,6 +121,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   step: 'upload',
   images: [],
   selectedImageIndex: 0,
+  mixMatchMode: false,
+  slotOverrides: {},
   cropData: null,
   adjustments: { ...DEFAULT_ADJUSTMENTS },
   rotation: 0,
@@ -136,13 +147,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // Actions
   setMode: (mode) => set({ mode }),
   setStep: (step) => set({ step }),
+  setMixMatchMode: (enabled) => set({ mixMatchMode: enabled }),
+  setImageCopies: (index, copies) => set((state) => {
+    const newImages = [...state.images];
+    if (newImages[index]) {
+      newImages[index] = { ...newImages[index], copies: Math.max(1, copies) };
+    }
+    return { images: newImages };
+  }),
+  setSlotOverride: (slotIndex, imageId) => set((state) => ({
+    slotOverrides: { ...state.slotOverrides, [slotIndex]: imageId },
+  })),
+  resetSlotOverrides: () => set({ slotOverrides: {} }),
   setColorCalibration: (settings) => set((state) => ({
     colorCalibration: { ...state.colorCalibration, ...settings },
   })),
   resetColorCalibration: () => set({ colorCalibration: { ...DEFAULT_COLOR_CALIBRATION } }),
   
   addImages: (images) => set((state) => ({
-    images: [...state.images, ...images],
+    images: [...state.images, ...images.map(img => ({ ...img, copies: img.copies || 4 }))],
     selectedImageIndex: state.images.length === 0 ? 0 : state.selectedImageIndex,
   })),
   
@@ -193,7 +216,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   
   setLayoutResult: (result) => set({ layoutResult: result }),
   
-  setCroppedImageUrl: (url) => set({ croppedImageUrl: url }),
+  setCroppedImageUrl: (url) => set((state) => {
+    const newImages = [...state.images];
+    if (newImages[state.selectedImageIndex]) {
+      newImages[state.selectedImageIndex] = {
+        ...newImages[state.selectedImageIndex],
+        croppedImageUrl: url || undefined,
+        cropData: state.cropData || undefined,
+      };
+    }
+    return {
+      croppedImageUrl: url,
+      images: newImages,
+    };
+  }),
   
   setIDCardState: (newState) => set((state) => ({
     idCardState: { ...state.idCardState, ...newState },
@@ -272,6 +308,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({
       images: [],
       selectedImageIndex: 0,
+      mixMatchMode: false,
+      slotOverrides: {},
       cropData: null,
       adjustments: { ...DEFAULT_ADJUSTMENTS },
       rotation: 0,

@@ -12,7 +12,9 @@ export interface PrintConfig {
   paperHeight: number;
   orientation: 'portrait' | 'landscape';
   positions: LayoutPosition[];
-  imageUrl: string;
+  imageUrl?: string;
+  /** Optional per-slot specific images for multi-customer mix & match printing */
+  slots?: { position: LayoutPosition; imageUrl: string }[];
   itemWidth: number;
   itemHeight: number;
   showCuttingMarks?: boolean;
@@ -40,7 +42,7 @@ export interface IDCardPrintConfig {
  */
 export function generatePrintHTML(config: PrintConfig): string {
   const {
-    paperWidth, paperHeight, orientation, positions, imageUrl,
+    paperWidth, paperHeight, orientation, positions, imageUrl, slots,
     itemWidth, itemHeight, showCuttingMarks, bleedMm = 0, showCropMarks = true
   } = config;
 
@@ -48,7 +50,11 @@ export function generatePrintHTML(config: PrintConfig): string {
   const pageHeight = orientation === 'landscape' ? paperWidth : paperHeight;
   const cellBorder = showCuttingMarks ? 'border: 0.15mm dashed rgba(0,0,0,0.35);' : '';
 
-  const photoCells = positions.map((pos) => {
+  const itemsToRender = slots && slots.length > 0
+    ? slots
+    : positions.map((pos) => ({ position: pos, imageUrl: imageUrl || '' }));
+
+  const photoCells = itemsToRender.map(({ position: pos, imageUrl: cellImg }) => {
     // Expand by bleed if configured
     const renderX = pos.x - bleedMm;
     const renderY = pos.y - bleedMm;
@@ -76,7 +82,7 @@ export function generatePrintHTML(config: PrintConfig): string {
         position: relative;
         ${cellBorder}
       ">
-        <img src="${imageUrl}" style="
+        <img src="${cellImg}" style="
           width: 100%;
           height: 100%;
           object-fit: cover;

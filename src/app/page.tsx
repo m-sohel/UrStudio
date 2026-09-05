@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { PwaInstaller } from '@/components/pwa-installer';
 import { useProjectStore } from '@/store/project-store';
 
 const quickActions = [
@@ -81,6 +82,7 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
+              <PwaInstaller />
               <ThemeToggle />
               <Link href="/templates">
                 <Button variant="outline" size="sm">

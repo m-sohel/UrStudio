@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: "UrStudio — Photo & ID Card Printing",
   description: "Professional photo and ID card printing solution for cybercafés, photo studios, and printing shops. Upload, crop, layout, and print passport photos, visa photos, ID cards, and more.",
   keywords: ["urstudio", "photo printing", "passport photo", "id card", "cybercafe", "photo studio", "print layout"],
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       { url: "/svgs/logo and the favicon.svg", type: "image/svg+xml" },
@@ -59,6 +60,13 @@ export default function RootLayout({
                   document.documentElement.style.colorScheme = 'light';
                 }
               } catch (e) {}
+              if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                    console.log('SW registration skipped or failed:', err);
+                  });
+                });
+              }
             `,
           }}
         />

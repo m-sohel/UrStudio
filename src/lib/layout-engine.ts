@@ -316,3 +316,78 @@ export function calculateIDCardLayout(input: IDCardLayoutInput): IDCardLayoutRes
     rows: layout.rows,
   };
 }
+
+// ============================================================
+// Multi-Customer Mix & Match Sheet Mapping
+// ============================================================
+
+export interface MultiCustomerPhotoItem {
+  id: string;
+  name: string;
+  imageUrl: string;
+  copies?: number;
+}
+
+export interface MappedCustomerSlot {
+  position: LayoutPosition;
+  slotIndex: number;
+  imageId: string;
+  imageName: string;
+  imageUrl: string;
+  customerIndex: number;
+}
+
+/**
+ * Distribute multiple customer photos across sheet grid slots.
+ * Supports requested copy counts and manual slot overrides.
+ */
+export function mapMultiCustomerSlots(
+  positions: LayoutPosition[],
+  items: MultiCustomerPhotoItem[],
+  slotOverrides?: Record<number, string>
+): MappedCustomerSlot[] {
+  if (positions.length === 0 || items.length === 0) return [];
+
+  const itemMap = new Map(items.map((item, idx) => [item.id, { item, idx }]));
+
+  // Build sequential list based on each item's requested copy count
+  const sequence: { item: MultiCustomerPhotoItem; idx: number }[] = [];
+  for (let idx = 0; idx < items.length; idx++) {
+    const item = items[idx];
+    const targetCopies = Math.max(1, item.copies || 1);
+    for (let c = 0; c < targetCopies; c++) {
+      sequence.push({ item, idx });
+    }
+  }
+
+  // If sequence is shorter than slots, loop through sequence to fill paper
+  const safeSequence = sequence.length > 0 ? sequence : [{ item: items[0], idx: 0 }];
+
+  return positions.map((pos, slotIdx) => {
+    // Check if slot has a manual override
+    const overrideId = slotOverrides ? slotOverrides[slotIdx] : undefined;
+    if (overrideId && itemMap.has(overrideId)) {
+      const match = itemMap.get(overrideId)!;
+      return {
+        position: pos,
+        slotIndex: slotIdx,
+        imageId: match.item.id,
+        imageName: match.item.name,
+        imageUrl: match.item.imageUrl,
+        customerIndex: match.idx,
+      };
+    }
+
+    // Default to sequential allocation
+    const mapped = safeSequence[slotIdx % safeSequence.length];
+    return {
+      position: pos,
+      slotIndex: slotIdx,
+      imageId: mapped.item.id,
+      imageName: mapped.item.name,
+      imageUrl: mapped.item.imageUrl,
+      customerIndex: mapped.idx,
+    };
+  });
+}
+

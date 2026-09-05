@@ -252,27 +252,59 @@ export default function TemplatesPage() {
             <TabsContent value="photos" className="space-y-6">
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Built-in Photo Presets
+                  Official Biometric & Photo Presets ({PHOTO_TEMPLATES.length})
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {PHOTO_TEMPLATES.map((t) => (
-                    <Card key={t.id} className="border-border hover:border-primary/40 transition-colors">
+                    <Card key={t.id} className="border-border hover:border-primary/40 transition-all flex flex-col justify-between">
                       <CardHeader className="p-4 pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-semibold truncate">{t.name}</CardTitle>
-                          <Badge variant="secondary" className="text-[10px]">Built-in</Badge>
+                        <div className="flex items-start justify-between gap-1 mb-1">
+                          <CardTitle className="text-sm font-semibold leading-tight">{t.name}</CardTitle>
+                          {t.country && t.country !== 'GLOBAL' ? (
+                            <Badge variant="secondary" className="text-[10px] font-mono px-1.5 shrink-0">{t.country}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">Global</Badge>
+                          )}
                         </div>
                         <CardDescription className="text-xs">
                           {formatTemplateDimensions(t)}
                         </CardDescription>
+
+                        {/* Guideline Badges */}
+                        {t.guidelineBadges && t.guidelineBadges.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {t.guidelineBadges.map((badge, idx) => (
+                              <span
+                                key={idx}
+                                className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                  badge.includes('White BG')
+                                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                    : badge.includes('Blue BG')
+                                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                    : badge.includes('Face')
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : 'bg-muted text-muted-foreground/80'
+                                }`}
+                              >
+                                {badge}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {t.officialNotes && (
+                          <p className="text-[10px] text-muted-foreground/80 mt-2 line-clamp-2 italic">
+                            {t.officialNotes}
+                          </p>
+                        )}
                       </CardHeader>
-                      <CardContent className="p-4 pt-2 flex items-center justify-between">
+                      <CardContent className="p-4 pt-2 flex items-center justify-between border-t border-border/40 mt-2">
                         <span className="text-[11px] text-muted-foreground">{t.defaultCopies} copies default</span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleUseTemplate(t.id, 'photo')}
-                          className="text-xs h-7"
+                          className="text-xs h-7 hover:border-primary hover:text-primary"
                         >
                           Use Preset →
                         </Button>
@@ -289,7 +321,7 @@ export default function TemplatesPage() {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {customPhotoTemplates.map((t) => (
-                      <Card key={t.id} className="border-cyan-500/30 bg-cyan-500/5">
+                      <Card key={t.id} className="border-cyan-500/30 bg-cyan-500/5 flex flex-col justify-between">
                         <CardHeader className="p-4 pb-2">
                           <div className="flex items-center justify-between">
                             <CardTitle className="text-sm font-semibold truncate">{t.name}</CardTitle>
@@ -306,7 +338,7 @@ export default function TemplatesPage() {
                             {formatTemplateDimensions(t)}
                           </CardDescription>
                         </CardHeader>
-                        <CardContent className="p-4 pt-2 flex items-center justify-between">
+                        <CardContent className="p-4 pt-2 flex items-center justify-between border-t border-cyan-500/20 mt-2">
                           <span className="text-[11px] text-muted-foreground">{t.defaultCopies} copies default</span>
                           <Button
                             size="sm"
@@ -327,27 +359,51 @@ export default function TemplatesPage() {
             <TabsContent value="id-cards" className="space-y-6">
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Standard ID Card Presets (CR80)
+                  Official Standard ID Cards ({ID_CARD_TEMPLATES.length})
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {ID_CARD_TEMPLATES.map((t) => (
-                    <Card key={t.id} className="border-border hover:border-primary/40 transition-colors">
+                    <Card key={t.id} className="border-border hover:border-primary/40 transition-all flex flex-col justify-between">
                       <CardHeader className="p-4 pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-semibold truncate">{t.name}</CardTitle>
-                          <Badge variant="secondary" className="text-[10px]">Standard</Badge>
+                        <div className="flex items-start justify-between gap-1 mb-1">
+                          <CardTitle className="text-sm font-semibold leading-tight">{t.name}</CardTitle>
+                          {t.country && t.country !== 'GLOBAL' ? (
+                            <Badge variant="secondary" className="text-[10px] font-mono px-1.5 shrink-0">{t.country}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">CR80</Badge>
+                          )}
                         </div>
                         <CardDescription className="text-xs">
-                          {formatTemplateDimensions(t)} • Front & Back
+                          {formatTemplateDimensions(t)} • {t.hasBackSide ? 'Front & Back' : 'Single Side'}
                         </CardDescription>
+
+                        {/* Guideline Badges */}
+                        {t.guidelineBadges && t.guidelineBadges.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {t.guidelineBadges.map((badge, idx) => (
+                              <span
+                                key={idx}
+                                className="text-[9px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground/80"
+                              >
+                                {badge}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {t.officialNotes && (
+                          <p className="text-[10px] text-muted-foreground/80 mt-2 line-clamp-2 italic">
+                            {t.officialNotes}
+                          </p>
+                        )}
                       </CardHeader>
-                      <CardContent className="p-4 pt-2 flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground">CR80 Plastic Card</span>
+                      <CardContent className="p-4 pt-2 flex items-center justify-between border-t border-border/40 mt-2">
+                        <span className="text-[11px] text-muted-foreground">CR80 Standard</span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleUseTemplate(t.id, 'id-card')}
-                          className="text-xs h-7"
+                          className="text-xs h-7 hover:border-primary hover:text-primary"
                         >
                           Print Card →
                         </Button>
