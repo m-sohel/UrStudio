@@ -2,6 +2,7 @@
 
 import React, { useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Undo2, Redo2, Save, Printer, Eye, Home,
@@ -150,8 +151,15 @@ function EditorContent() {
         <header className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 mr-3 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-sky-400 flex items-center justify-center shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-              <Printer className="w-4 h-4 text-slate-950 font-bold" />
+            <div className="w-8 h-8 rounded-lg bg-card border border-border/60 flex items-center justify-center shadow-sm p-1 overflow-hidden group-hover:scale-105 transition-transform">
+              <NextImage
+                src="/svgs/logo and the favicon.svg"
+                alt="UrStudio Logo"
+                width={28}
+                height={28}
+                className="w-full h-full object-contain"
+                priority
+              />
             </div>
             <span className="text-sm font-bold hidden sm:inline tracking-tight text-foreground">UrStudio</span>
           </Link>

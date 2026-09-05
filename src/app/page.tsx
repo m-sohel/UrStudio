@@ -82,8 +82,15 @@ export default function Dashboard() {
         <header className="border-b border-border bg-card/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                <Printer className="w-5 h-5 text-slate-950 font-bold" />
+              <div className="w-10 h-10 rounded-xl bg-card border border-border/60 flex items-center justify-center shadow-md p-1 overflow-hidden">
+                <Image
+                  src="/svgs/logo and the favicon.svg"
+                  alt="UrStudio Logo"
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-contain"
+                  priority
+                />
               </div>
               <div>
                 <h1 className="text-lg font-bold tracking-tight">UrStudio</h1>

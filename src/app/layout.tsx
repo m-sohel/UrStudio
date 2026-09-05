@@ -15,6 +15,14 @@ export const metadata: Metadata = {
   title: "UrStudio — Photo & ID Card Printing",
   description: "Professional photo and ID card printing solution for cybercafés, photo studios, and printing shops. Upload, crop, layout, and print passport photos, visa photos, ID cards, and more.",
   keywords: ["urstudio", "photo printing", "passport photo", "id card", "cybercafe", "photo studio", "print layout"],
+  icons: {
+    icon: [
+      { url: "/svgs/logo and the favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/svgs/logo and the favicon.svg",
+    apple: "/svgs/logo and the favicon.svg",
+  },
 };
 
 export default function RootLayout({
