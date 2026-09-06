@@ -1,4 +1,4 @@
-# iPrint — CyberCafe Photo & ID Card Printing Software
+# UrStudio — CyberCafe Photo & ID Card Printing Software
 
 A production-ready, offline-first web application for cybercafés, photo studios, printing shops, and CSC document centers. Allows operators to rapidly crop, arrange, resize, and print passport photos, visa photos, and ID cards with exact physical print dimensions.
 
