@@ -7,6 +7,17 @@
 
 import type { LayoutPosition } from './layout-engine';
 
+export interface WatermarkPrintConfig {
+  isPro?: boolean;
+  shopBranding?: {
+    enabled?: boolean;
+    shopName?: string;
+    phone?: string;
+    address?: string;
+    customFooter?: string;
+  };
+}
+
 export interface PrintConfig {
   paperWidth: number;
   paperHeight: number;
@@ -20,6 +31,7 @@ export interface PrintConfig {
   showCuttingMarks?: boolean;
   bleedMm?: number;
   showCropMarks?: boolean;
+  watermark?: WatermarkPrintConfig;
 }
 
 export interface IDCardPrintConfig {
@@ -35,6 +47,7 @@ export interface IDCardPrintConfig {
   showCropMarks?: boolean;
   /** For PVC direct printing: print only front or back */
   pvcSingleSide?: 'front' | 'back';
+  watermark?: WatermarkPrintConfig;
 }
 
 /**
@@ -43,7 +56,8 @@ export interface IDCardPrintConfig {
 export function generatePrintHTML(config: PrintConfig): string {
   const {
     paperWidth, paperHeight, orientation, positions, imageUrl, slots,
-    itemWidth, itemHeight, showCuttingMarks, bleedMm = 0, showCropMarks = true
+    itemWidth, itemHeight, showCuttingMarks, bleedMm = 0, showCropMarks = true,
+    watermark,
   } = config;
 
   const pageWidth = orientation === 'landscape' ? paperHeight : paperWidth;
@@ -92,6 +106,21 @@ export function generatePrintHTML(config: PrintConfig): string {
       ${cropMarksHtml}
     </div>`;
   }).join('\n');
+
+  let watermarkHtml = '';
+  if (watermark?.isPro) {
+    if (watermark.shopBranding?.enabled && (watermark.shopBranding.shopName || watermark.shopBranding.phone)) {
+      const parts = [
+        watermark.shopBranding.shopName,
+        watermark.shopBranding.phone,
+        watermark.shopBranding.address,
+        watermark.shopBranding.customFooter,
+      ].filter(Boolean);
+      watermarkHtml = `<div class="sheet-branding-footer shop">${parts.join(' • ')}</div>`;
+    }
+  } else {
+    watermarkHtml = '<div class="sheet-branding-footer free">Printed with UrStudio (urstudio.app) • Free Tier</div>';
+  }
 
   return `<!DOCTYPE html>
 <html>
@@ -153,6 +182,31 @@ export function generatePrintHTML(config: PrintConfig): string {
     .crop-mark.bl { bottom: -2.5mm; left: -2.5mm; border-right: 0.2mm solid #666; border-top: 0.2mm solid #666; }
     .crop-mark.br { bottom: -2.5mm; right: -2.5mm; border-left: 0.2mm solid #666; border-top: 0.2mm solid #666; }
 
+    /* Subtle Paper Sheet Branding / Watermark Footer */
+    .sheet-branding-footer {
+      position: absolute;
+      bottom: 1.5mm;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 5.2pt;
+      letter-spacing: 0.15mm;
+      pointer-events: none;
+      z-index: 999;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 4mm;
+    }
+    .sheet-branding-footer.free {
+      color: #94A3B8;
+    }
+    .sheet-branding-footer.shop {
+      color: #334155;
+      font-weight: 600;
+    }
+
     @media screen {
       body {
         background: #f0f0f0;
@@ -170,6 +224,7 @@ export function generatePrintHTML(config: PrintConfig): string {
 <body>
   <div class="print-page">
     ${photoCells}
+    ${watermarkHtml}
   </div>
 </body>
 </html>`;
@@ -182,7 +237,7 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
   const {
     paperWidth, paperHeight, orientation, cardWidth, cardHeight,
     frontImageUrl, backImageUrl, showCuttingMarks, pvcSingleSide,
-    bleedMm = 0, showCropMarks = true
+    bleedMm = 0, showCropMarks = true, watermark,
   } = config;
 
   const isPVC = pvcSingleSide !== undefined;
@@ -284,6 +339,21 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
     }
   }
 
+  let watermarkHtml = '';
+  if (watermark?.isPro) {
+    if (watermark.shopBranding?.enabled && (watermark.shopBranding.shopName || watermark.shopBranding.phone)) {
+      const parts = [
+        watermark.shopBranding.shopName,
+        watermark.shopBranding.phone,
+        watermark.shopBranding.address,
+        watermark.shopBranding.customFooter,
+      ].filter(Boolean);
+      watermarkHtml = `<div class="sheet-branding-footer shop">${parts.join(' • ')}</div>`;
+    }
+  } else {
+    watermarkHtml = '<div class="sheet-branding-footer free">Printed with UrStudio (urstudio.app) • Free Tier</div>';
+  }
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -337,6 +407,31 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
     .crop-mark.bl { bottom: -2.5mm; left: -2.5mm; border-right: 0.2mm solid #666; border-top: 0.2mm solid #666; }
     .crop-mark.br { bottom: -2.5mm; right: -2.5mm; border-left: 0.2mm solid #666; border-top: 0.2mm solid #666; }
 
+    /* Subtle Paper Sheet Branding / Watermark Footer */
+    .sheet-branding-footer {
+      position: absolute;
+      bottom: 1.5mm;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 5.2pt;
+      letter-spacing: 0.15mm;
+      pointer-events: none;
+      z-index: 999;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 4mm;
+    }
+    .sheet-branding-footer.free {
+      color: #94A3B8;
+    }
+    .sheet-branding-footer.shop {
+      color: #334155;
+      font-weight: 600;
+    }
+
     @media screen {
       body {
         background: #f0f0f0;
@@ -354,6 +449,7 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
 <body>
   <div class="print-page">
     ${cardCells}
+    ${!isPVC ? watermarkHtml : ''}
   </div>
 </body>
 </html>`;

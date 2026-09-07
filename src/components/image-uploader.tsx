@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useRef, useState } from 'react';
-import { Upload, Camera, Image as ImageIcon, X, Copy, FileText, FileImage, Loader2 } from 'lucide-react';
+import { Upload, Camera, Image as ImageIcon, X, Copy, FileText, FileImage, Loader2, FileCheck2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { loadImage, isSupportedImage, formatFileSize, generateThumbnail, loadImageElement } from '@/lib/image-processing';
@@ -10,7 +10,11 @@ import { useEditorStore, type EditorImage } from '@/store/editor-store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PdfPasswordDialog } from '@/components/pdf-password-dialog';
 
-export function ImageUploader() {
+interface ImageUploaderProps {
+  onOpenGovtForm?: () => void;
+}
+
+export function ImageUploader({ onOpenGovtForm }: ImageUploaderProps = {}) {
   const { addImages, images, removeImage, selectImage, selectedImageIndex, duplicateImage } = useEditorStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -192,7 +196,7 @@ export function ImageUploader() {
             </span>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <Button
               variant="default"
               size="default"
@@ -218,7 +222,49 @@ export function ImageUploader() {
               <Camera className="w-4 h-4 mr-2" />
               Camera
             </Button>
+            {onOpenGovtForm && (
+              <Button
+                variant="outline"
+                size="default"
+                disabled={isLoading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenGovtForm();
+                }}
+                className="border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-semibold shadow-xs"
+              >
+                <FileCheck2 className="w-4 h-4 mr-2 text-amber-500" />
+                Govt Form Exporter
+              </Button>
+            )}
           </div>
+
+          {/* Quick Action Banner for Govt Form Exporter */}
+          {onOpenGovtForm && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenGovtForm();
+              }}
+              className="mt-6 flex items-center justify-between gap-3 p-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-primary/10 to-amber-500/5 border border-amber-500/30 hover:border-amber-500/60 cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] max-w-lg w-full group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0 group-hover:scale-105 transition-transform">
+                  <FileCheck2 className="w-5 h-5 text-amber-500" />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-foreground">Need to fill an Online Govt Form?</span>
+                    <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-[10px] px-1.5 py-0">Hot</Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Target &lt;20KB / &lt;50KB compressor &amp; paper cleaner for SSC, UPSC, IBPS &amp; DL
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-amber-500 group-hover:translate-x-1 transition-transform shrink-0" />
+            </div>
+          )}
 
           {isLoading && (
             <div className="mt-6 flex items-center gap-2.5 px-4 py-2 rounded-lg bg-card border border-border shadow-xs text-sm text-foreground">

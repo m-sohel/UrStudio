@@ -10,6 +10,9 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Users, Split, Plus, Minus, Shuffle } from 'lucide-react';
 
+import { useLicenseStore } from '@/store/license-store';
+import { Crown } from 'lucide-react';
+
 /**
  * Visual layout preview showing the paper with photo positions.
  * Supports single photo repeat or multi-customer Mix & Match runs.
@@ -29,6 +32,8 @@ export function LayoutPreview() {
     setSlotOverride,
     resetSlotOverrides,
   } = useEditorStore();
+
+  const { isPro, openUpgradeModal } = useLicenseStore();
 
   const paper = getPaperSize(paperSettings.paperId);
 
@@ -107,6 +112,14 @@ export function LayoutPreview() {
   const paperW = dims.width * scale;
   const paperH = dims.height * scale;
 
+  const handleMixMatchToggle = (checked: boolean) => {
+    if (checked && !isPro) {
+      openUpgradeModal('Multi-Customer Mix & Match sheets');
+      return;
+    }
+    setMixMatchMode(checked);
+  };
+
   return (
     <div className="flex-1 flex flex-col items-center p-4 overflow-auto">
       {/* Multi-Customer Mix & Match Toolbar */}
@@ -115,12 +128,20 @@ export function LayoutPreview() {
           <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-primary" />
-              <Label className="text-xs font-semibold cursor-pointer">
-                Multi-Customer Mix & Match Sheet
+              <Label
+                onClick={() => { if (!isPro) openUpgradeModal('Multi-Customer Mix & Match sheets'); }}
+                className="text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Multi-Customer Mix & Match Sheet</span>
+                {!isPro && (
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/10 text-amber-500 border-amber-500/30 font-bold gap-0.5">
+                    <Crown className="w-2.5 h-2.5" /> PRO
+                  </Badge>
+                )}
               </Label>
               <Switch
                 checked={mixMatchMode}
-                onCheckedChange={setMixMatchMode}
+                onCheckedChange={handleMixMatchToggle}
               />
             </div>
             {mixMatchMode && (

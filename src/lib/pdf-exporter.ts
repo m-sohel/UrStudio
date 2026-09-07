@@ -7,6 +7,7 @@
 
 import jsPDF from 'jspdf';
 import type { LayoutPosition } from './layout-engine';
+import type { WatermarkPrintConfig } from './print';
 
 export type IDCardPositionPair = {
   front: LayoutPosition;
@@ -21,6 +22,7 @@ export interface BasePDFConfig {
   bleedMm?: number;
   showCropMarks?: boolean;
   filename?: string;
+  watermark?: WatermarkPrintConfig;
 }
 
 export interface PhotoSheetPDFConfig extends BasePDFConfig {
@@ -149,10 +151,10 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
   });
 
   doc.setDocumentProperties({
-    title: 'UrStudio — Photo Print Sheet',
+    title: 'UrStudio',
     subject: 'Photo Print Sheet',
     author: 'UrStudio',
-    creator: 'UrStudio SaaS Platform',
+    creator: 'UrStudio',
   });
 
   const itemsToRender = slots && slots.length > 0
@@ -194,7 +196,26 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
     }
   }
 
-  const exportName = filename || `iPrint_Photos_${Math.round(pWidth)}x${Math.round(pHeight)}mm_${Date.now()}.pdf`;
+  // Watermark or Custom Shop Branding Footer
+  if (config.watermark?.isPro) {
+    if (config.watermark.shopBranding?.enabled && (config.watermark.shopBranding.shopName || config.watermark.shopBranding.phone)) {
+      const parts = [
+        config.watermark.shopBranding.shopName,
+        config.watermark.shopBranding.phone,
+        config.watermark.shopBranding.address,
+        config.watermark.shopBranding.customFooter,
+      ].filter(Boolean);
+      doc.setFontSize(6.5);
+      doc.setTextColor(70, 70, 70);
+      doc.text(parts.join(' • '), pWidth / 2, pHeight - 2, { align: 'center' });
+    }
+  } else {
+    doc.setFontSize(6);
+    doc.setTextColor(160, 160, 160);
+    doc.text('Printed via UrStudio (urstudio.app) • Free Tier', pWidth / 2, pHeight - 2, { align: 'center' });
+  }
+
+  const exportName = filename || `UrStudio_Photos_${Math.round(pWidth)}x${Math.round(pHeight)}mm_${Date.now()}.pdf`;
   if (typeof window !== 'undefined') {
     doc.save(exportName);
   }
@@ -234,10 +255,10 @@ export async function exportIDCardSheetToPDF(config: IDCardSheetPDFConfig): Prom
   });
 
   doc.setDocumentProperties({
-    title: `UrStudio — ${templateName} Sheet`,
+    title: 'UrStudio',
     subject: `${templateName} Sheet`,
     author: 'UrStudio',
-    creator: 'UrStudio SaaS Platform',
+    creator: 'UrStudio',
   });
 
   const resolvedFront = await resolveImageDataUrl(frontImageUrl);
@@ -285,7 +306,26 @@ export async function exportIDCardSheetToPDF(config: IDCardSheetPDFConfig): Prom
     }
   }
 
-  const exportName = filename || `iPrint_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}_Sheet_${Date.now()}.pdf`;
+  // Watermark or Custom Shop Branding Footer
+  if (config.watermark?.isPro) {
+    if (config.watermark.shopBranding?.enabled && (config.watermark.shopBranding.shopName || config.watermark.shopBranding.phone)) {
+      const parts = [
+        config.watermark.shopBranding.shopName,
+        config.watermark.shopBranding.phone,
+        config.watermark.shopBranding.address,
+        config.watermark.shopBranding.customFooter,
+      ].filter(Boolean);
+      doc.setFontSize(6.5);
+      doc.setTextColor(70, 70, 70);
+      doc.text(parts.join(' • '), pWidth / 2, pHeight - 2, { align: 'center' });
+    }
+  } else {
+    doc.setFontSize(6);
+    doc.setTextColor(160, 160, 160);
+    doc.text('Printed via UrStudio (urstudio.app) • Free Tier', pWidth / 2, pHeight - 2, { align: 'center' });
+  }
+
+  const exportName = filename || `UrStudio_${templateName.replace(/[^a-zA-Z0-9]/g, '_')}_Sheet_${Date.now()}.pdf`;
   if (typeof window !== 'undefined') {
     doc.save(exportName);
   }
@@ -313,10 +353,10 @@ export async function exportPVCCardToPDF(config: PVCCardPDFConfig): Promise<jsPD
   });
 
   doc.setDocumentProperties({
-    title: 'UrStudio — CR80 PVC Card',
+    title: 'UrStudio',
     subject: 'CR80 PVC Card',
     author: 'UrStudio',
-    creator: 'UrStudio SaaS Platform',
+    creator: 'UrStudio',
   });
 
   const resolvedFront = await resolveImageDataUrl(frontImageUrl);

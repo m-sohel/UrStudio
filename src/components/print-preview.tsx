@@ -15,8 +15,9 @@ import {
 import { mapMultiCustomerSlots, type MultiCustomerPhotoItem } from '@/lib/layout-engine';
 import { generatePrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
 import { exportPhotoLayoutToPDF } from '@/lib/pdf-exporter';
-
 import { useSettingsStore } from '@/store/settings-store';
+import { useLicenseStore } from '@/store/license-store';
+import { Crown } from 'lucide-react';
 
 export function PrintPreview() {
   const {
@@ -35,6 +36,7 @@ export function PrintPreview() {
   } = useEditorStore();
 
   const settings = useSettingsStore();
+  const { isPro, shopBranding, tier, consumeSinglePass, openUpgradeModal } = useLicenseStore();
   const [zoom, setZoom] = useState(1);
   const [showInstructions, setShowInstructions] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -94,16 +96,24 @@ export function PrintPreview() {
       showCuttingMarks: true,
       bleedMm: settings.defaultBleedMm,
       showCropMarks: settings.showCropMarks,
+      watermark: {
+        isPro,
+        shopBranding,
+      },
     });
 
     printViaIframe(html);
+
+    if (tier === 'single_pass') {
+      consumeSinglePass();
+    }
 
     if (settings.autoWipeOnPrint) {
       setTimeout(() => {
         reset();
       }, 500);
     }
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems, reset]);
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems, reset, isPro, shopBranding, tier, consumeSinglePass]);
 
   const handleSavePDF = useCallback(async () => {
     if (!paper || !layoutResult || !template) return;
@@ -124,15 +134,23 @@ export function PrintPreview() {
         showCuttingMarks: true,
         bleedMm: settings.defaultBleedMm,
         showCropMarks: settings.showCropMarks,
+        watermark: {
+          isPro,
+          shopBranding,
+        },
         filename: `UrStudio_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_${paper.name}_${Date.now()}.pdf`,
       });
+
+      if (tier === 'single_pass') {
+        consumeSinglePass();
+      }
     } catch (err) {
       console.error('Failed to export photo sheet PDF:', err);
       alert('Failed to export PDF. Please check your image data and try again.');
     } finally {
       setIsExportingPdf(false);
     }
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems]);
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems, isPro, shopBranding, tier, consumeSinglePass]);
 
   if (!paper || !layoutResult || !template) {
     return (
@@ -219,23 +237,47 @@ export function PrintPreview() {
           Print Tips
         </Button>
 
+        <Separator orientation="vertical" className="h-6 mx-2" />
+
+        {!isPro ? (
+          <Button
+            variant="3d"
+            size="sm"
+            onClick={() => openUpgradeModal('Watermark-Free Ultra-HD Export')}
+            className="text-xs h-8 border-[#C89B4A] text-[#825F21] dark:text-[#D8A856] bg-[#C89B4A]/15 hover:bg-[#C89B4A]/25 font-bold gap-1.5 shadow-[0_3px_0_0_#825F21]"
+            title="Upgrade to Pro to remove UrStudio watermark & add shop branding"
+          >
+            <Crown className="w-3.5 h-3.5 text-[#C89B4A]" />
+            <span className="hidden md:inline">Remove Watermark</span>
+            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#C89B4A] text-[#2A2013] font-bold">
+              PRO
+            </span>
+          </Button>
+        ) : (
+          <div className="badge-3d text-xs h-8 px-2.5 border-[#4C7A5A] bg-[#4C7A5A]/15 text-[#4C7A5A] flex items-center font-bold gap-1 shadow-[0_2px_0_0_#33533D]">
+            <Crown className="w-3.5 h-3.5 text-[#C89B4A]" />
+            <span className="hidden sm:inline">Pro Active</span>
+          </div>
+        )}
+
         <Button
-          variant="outline"
+          variant="3d"
           size="sm"
           onClick={handleSavePDF}
           disabled={isExportingPdf}
-          className="text-xs border-border hover:bg-accent/40"
+          className="text-xs h-8 gap-1.5 font-semibold"
         >
-          <FileDown className="w-4 h-4 mr-1.5 text-cyan-400" />
+          <FileDown className="w-4 h-4 text-[#3E6E93]" />
           {isExportingPdf ? 'Saving PDF...' : 'Save as PDF'}
         </Button>
 
         <Button
+          variant="3d-terracotta"
           size="sm"
           onClick={handlePrint}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium text-xs"
+          className="h-8 px-3.5 text-xs font-bold gap-1.5"
         >
-          <Printer className="w-4 h-4 mr-1.5" />
+          <Printer className="w-4 h-4" />
           Print Now
         </Button>
       </div>
@@ -301,6 +343,22 @@ export function PrintPreview() {
               )}
             </div>
           ))}
+
+          {/* Live Watermark / Custom Shop Branding Footer Preview on Paper */}
+          {!isPro ? (
+            <div className="absolute bottom-1 left-0 right-0 text-center text-[9px] text-gray-400 font-sans tracking-wide select-none pointer-events-none">
+              Printed via UrStudio (urstudio.app) • Free Tier
+            </div>
+          ) : (
+            shopBranding.enabled && shopBranding.shopName ? (
+              <div className="absolute bottom-1 left-0 right-0 text-center text-[9px] text-gray-600 font-sans font-medium tracking-wide select-none pointer-events-none px-4 truncate">
+                {shopBranding.shopName}
+                {shopBranding.phone ? ` • Tel: ${shopBranding.phone}` : ''}
+                {shopBranding.address ? ` • ${shopBranding.address}` : ''}
+                {shopBranding.customFooter ? ` • ${shopBranding.customFooter}` : ''}
+              </div>
+            ) : null
+          )}
         </div>
       </div>
     </div>

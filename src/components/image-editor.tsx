@@ -8,8 +8,9 @@ import {
   Sun, Contrast, Palette, RotateCcwIcon, Check, X,
   Printer, Sparkles, Sliders, ShieldAlert, Eye,
   UserCheck, ScanFace, Paintbrush, Wand2, RefreshCw, AlertCircle,
-  Upload
+  Upload, FileCheck2
 } from 'lucide-react';
+import { DigitalFormExportDialog } from '@/components/digital-form-export-dialog';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
@@ -67,6 +68,25 @@ export function ImageEditor() {
 
   // Overridden image object URL if background or enhancement has modified it
   const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
+
+  // Govt Form Export Dialog State
+  const [isGovtFormDialogOpen, setIsGovtFormDialogOpen] = useState(false);
+  const [govtFormSourceUrl, setGovtFormSourceUrl] = useState<string | null>(null);
+
+  const handleOpenGovtFormDialog = () => {
+    const cropper = cropperRef.current?.cropper;
+    if (cropper) {
+      const canvas = cropper.getCroppedCanvas({ imageSmoothingQuality: 'high' });
+      if (canvas) {
+        setGovtFormSourceUrl(canvas.toDataURL('image/jpeg', 0.95));
+      } else {
+        setGovtFormSourceUrl(activeImageUrl || selectedImage?.objectUrl || null);
+      }
+    } else {
+      setGovtFormSourceUrl(activeImageUrl || selectedImage?.objectUrl || null);
+    }
+    setIsGovtFormDialogOpen(true);
+  };
 
   const selectedImage = images[selectedImageIndex];
 
@@ -519,6 +539,16 @@ export function ImageEditor() {
           <X className="w-3.5 h-3.5 mr-1" />
           Cancel
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleOpenGovtFormDialog}
+          className="text-xs h-7 border-primary/40 text-primary hover:bg-primary/10 gap-1 font-medium"
+          title="Export formatted for SSC, UPSC, IBPS, Railways & Govt Form Portals"
+        >
+          <FileCheck2 className="w-3.5 h-3.5" />
+          <span>Govt Form</span>
+        </Button>
         <Button size="sm" onClick={handleCrop} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium h-7 px-3">
           <Check className="w-3.5 h-3.5 mr-1" />
           Apply Crop
@@ -839,6 +869,13 @@ export function ImageEditor() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Govt Form Exporter Dialog */}
+      <DigitalFormExportDialog
+        isOpen={isGovtFormDialogOpen}
+        onClose={() => setIsGovtFormDialogOpen(false)}
+        sourceImageUrl={govtFormSourceUrl}
+      />
     </div>
   );
 }

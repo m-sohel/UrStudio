@@ -8,7 +8,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
@@ -18,6 +18,14 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        "3d":
+          "border-2 border-[#1B2A4A] bg-[#FAF8F5] text-[#1B2A4A] font-bold rounded-full shadow-[0_5px_0_0_#1B2A4A] hover:-translate-y-0.5 hover:shadow-[0_7px_0_0_#1B2A4A] active:translate-y-0.5 active:shadow-[0_2px_0_0_#1B2A4A] dark:border-[#FAF8F5] dark:bg-[#FAF8F5] dark:text-[#0B101B] dark:shadow-[0_5px_0_0_#9E9689,0_6px_0_1.5px_#FAF8F5,0_10px_20px_rgba(0,0,0,0.8)] dark:hover:shadow-[0_7px_0_0_#9E9689,0_8px_0_2px_#FAF8F5,0_14px_25px_rgba(0,0,0,0.9)] dark:active:shadow-[0_2px_0_0_#9E9689,0_3px_0_1px_#FAF8F5] transition-all",
+        "3d-primary":
+          "border-2 border-[#0E1726] bg-[#1B2A4A] text-[#F5F3EE] font-bold rounded-full shadow-[0_5px_0_0_#0E1726] hover:-translate-y-0.5 hover:shadow-[0_7px_0_0_#0E1726] active:translate-y-0.5 active:shadow-[0_2px_0_0_#0E1726] dark:border-[#5E83C4] dark:bg-[#20355A] dark:text-[#FAF8F5] dark:shadow-[0_5px_0_0_#0D1624,0_6px_0_1.5px_#5E83C4,0_10px_20px_rgba(0,0,0,0.8)] dark:hover:shadow-[0_7px_0_0_#0D1624,0_8px_0_2px_#5E83C4,0_14px_25px_rgba(94,131,196,0.4)] dark:active:shadow-[0_2px_0_0_#0D1624,0_3px_0_1px_#5E83C4] transition-all",
+        "3d-terracotta":
+          "border-2 border-[#85331E] bg-[#C1553A] text-[#FBF3EE] font-bold rounded-full shadow-[0_5px_0_0_#6B2615] hover:-translate-y-0.5 hover:shadow-[0_7px_0_0_#6B2615] active:translate-y-0.5 active:shadow-[0_2px_0_0_#6B2615] dark:border-[#FFA08A] dark:bg-[#E05A3A] dark:text-white dark:shadow-[0_5px_0_0_#7A2612,0_6px_0_1.5px_#FFA08A,0_10px_20px_rgba(224,90,58,0.35)] dark:hover:shadow-[0_7px_0_0_#7A2612,0_8px_0_2px_#FFA08A,0_14px_25px_rgba(224,90,58,0.5)] dark:active:shadow-[0_2px_0_0_#7A2612,0_3px_0_1px_#FFA08A] transition-all",
+        "3d-gold":
+          "border-2 border-[#825F21] bg-[#C89B4A] text-[#2A2013] font-bold rounded-full shadow-[0_5px_0_0_#664A17] hover:-translate-y-0.5 hover:shadow-[0_7px_0_0_#664A17] active:translate-y-0.5 active:shadow-[0_2px_0_0_#664A17] dark:border-[#FFE082] dark:bg-[#E5AD35] dark:text-[#1A1203] dark:shadow-[0_5px_0_0_#61440A,0_6px_0_1.5px_#FFE082,0_10px_20px_rgba(229,173,53,0.35)] dark:hover:shadow-[0_7px_0_0_#61440A,0_8px_0_2px_#FFE082,0_14px_25px_rgba(229,173,53,0.5)] dark:active:shadow-[0_2px_0_0_#61440A,0_3px_0_1px_#FFE082] transition-all",
       },
       size: {
         default:

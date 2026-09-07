@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Trash2, ShieldCheck, HardDrive, Scissors, RotateCcw, AlertTriangle, Check,
-  Sun, Moon, Monitor
+  Sun, Moon, Monitor, Store, Crown, Sparkles, KeyRound, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useSettingsStore } from '@/store/settings-store';
 import { useProjectStore } from '@/store/project-store';
 import { useTemplateStore } from '@/store/template-store';
+import { useLicenseStore } from '@/store/license-store';
+import { useMounted } from '@/hooks/use-mounted';
+import { UpgradeModal } from '@/components/upgrade-modal';
 import { PAPER_SIZES } from '@/lib/templates';
 import {
   clearAllData, clearProjects, clearTemplates, getStorageHealth,
@@ -25,9 +28,23 @@ import {
 } from '@/lib/storage';
 
 export default function SettingsPage() {
+  const mounted = useMounted();
   const settings = useSettingsStore();
   const { clearRecentProjects } = useProjectStore();
   const { customPhotoTemplates, customIDCardTemplates } = useTemplateStore();
+  const {
+    isPro,
+    tier,
+    licenseKey,
+    expiresAt,
+    singlePassCount,
+    shopBranding,
+    updateShopBranding,
+    openUpgradeModal,
+    deactivateLicense,
+  } = useLicenseStore();
+
+  const isClientPro = mounted && isPro;
 
   const [storageHealth, setStorageHealth] = useState<StorageHealth | null>(null);
   const [purgeSuccess, setPurgeSuccess] = useState(false);
@@ -145,6 +162,199 @@ export default function SettingsPage() {
                     <p className="text-[11px] text-muted-foreground mt-0.5">Sync with OS appearance</p>
                   </div>
                 </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Onboarding & App Tour */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#C1553A] dark:text-[#E5AD35]" />
+                Onboarding & App Tour
+              </CardTitle>
+              <CardDescription>
+                Replay the 3-step interactive walkthrough to learn standard presets, biometric guides, and 300 DPI export
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <p className="text-xs font-semibold text-foreground">Interactive 3-Step Guided Tour</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Resets your tour progress and displays the animated guide on the dashboard
+                </p>
+              </div>
+              <Link href="/">
+                <Button
+                  variant="3d"
+                  size="sm"
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem('urstudio_tour_dismissed');
+                    } catch {}
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('urstudio:reset-tour'));
+                    }, 100);
+                  }}
+                  className="h-8 px-3.5 text-xs font-bold gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-[#C1553A]" />
+                  <span>Replay App Tour</span>
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          {/* Shop Branding & Pro License (Offline Cybercafé Suite) */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Store className="w-4 h-4 text-primary" />
+                  Shop Branding & Pro License
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {isPro ? (
+                    <Badge variant="outline" className="text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-semibold gap-1">
+                      <Crown className="w-3 h-3" />
+                      Pro Active: {tier.toUpperCase()}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs border-amber-500/30 bg-amber-500/10 text-amber-500 font-semibold gap-1">
+                      Free Tier
+                    </Badge>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => openUpgradeModal('Shop Branding & Pro Features')}
+                    className="text-xs h-7 gap-1 bg-gradient-to-r from-amber-500 to-primary text-white hover:opacity-90 font-semibold shadow-xs"
+                  >
+                    <Crown className="w-3 h-3" />
+                    {isPro ? 'Manage License' : 'Upgrade to Pro'}
+                  </Button>
+                </div>
+              </div>
+              <CardDescription>
+                Stamp your custom shop name, phone number, and address on printed sheet footers instead of the default watermark
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card/60">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-semibold cursor-pointer">Enable Custom Shop Branding</Label>
+                    {!isPro && (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/15 text-amber-500 border-amber-500/30 font-bold gap-0.5">
+                        <Crown className="w-2.5 h-2.5" /> PRO
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Replaces &quot;Printed via UrStudio&quot; footer with your studio details on all A4 and 4x6 photo sheets
+                  </p>
+                </div>
+                <Switch
+                  checked={Boolean(shopBranding.enabled && isClientPro)}
+                  onCheckedChange={(checked) => {
+                    if (checked && !isPro) {
+                      openUpgradeModal('Custom Shop Branding on print footers');
+                      return;
+                    }
+                    updateShopBranding({ enabled: checked });
+                  }}
+                />
+              </div>
+
+              {/* Branding details input form */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Studio / Shop Name</Label>
+                  <Input
+                    placeholder="e.g. Modern Photo Studio & CSC Center"
+                    value={shopBranding.shopName}
+                    onChange={(e) => updateShopBranding({ shopName: e.target.value })}
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Contact Phone / WhatsApp</Label>
+                  <Input
+                    placeholder="e.g. +91 98765 43210"
+                    value={shopBranding.phone}
+                    onChange={(e) => updateShopBranding({ phone: e.target.value })}
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Shop Address / Landmark</Label>
+                  <Input
+                    placeholder="e.g. Main Market, Near Bus Stand, Rampur"
+                    value={shopBranding.address || ''}
+                    onChange={(e) => updateShopBranding({ address: e.target.value })}
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Custom Tagline / Footer Note</Label>
+                  <Input
+                    placeholder="e.g. Passport Photos in 5 Mins • PVC ID Printing"
+                    value={shopBranding.customFooter || ''}
+                    onChange={(e) => updateShopBranding({ customFooter: e.target.value })}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Real-time footer preview */}
+              <div className="rounded-lg bg-muted/40 border border-border/80 p-3 text-center">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  Live Paper Sheet Footer Preview
+                </span>
+                <p className="text-xs font-mono text-foreground font-medium truncate">
+                  {isClientPro && shopBranding.enabled && shopBranding.shopName ? (
+                    <>
+                      {shopBranding.shopName}
+                      {shopBranding.phone ? ` • Tel: ${shopBranding.phone}` : ''}
+                      {shopBranding.address ? ` • ${shopBranding.address}` : ''}
+                      {shopBranding.customFooter ? ` • ${shopBranding.customFooter}` : ''}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Printed via UrStudio (urstudio.app) • Free Tier
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* License Details & Actions */}
+              <Separator />
+              <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">
+                    {isPro ? (
+                      <>
+                        Active License: <code className="text-primary font-mono font-semibold">{licenseKey || 'Built-in Key'}</code>
+                        {expiresAt && ` (Valid until ${new Date(expiresAt).toLocaleDateString()})`}
+                      </>
+                    ) : (
+                      'No active Pro license. Standard prints include subtle watermark.'
+                    )}
+                  </span>
+                </div>
+                {isPro && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={deactivateLicense}
+                    className="text-xs h-7 text-muted-foreground hover:text-destructive"
+                  >
+                    Deactivate License
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -372,6 +582,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </main>
+        <UpgradeModal />
       </div>
     </TooltipProvider>
   );
