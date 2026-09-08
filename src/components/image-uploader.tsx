@@ -15,7 +15,7 @@ interface ImageUploaderProps {
 }
 
 export function ImageUploader({ onOpenGovtForm }: ImageUploaderProps = {}) {
-  const { addImages, images, removeImage, selectImage, selectedImageIndex, duplicateImage } = useEditorStore();
+  const { addImages, images, removeImage, selectImage, selectedImageIndex, duplicateImage, setStep } = useEditorStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState<string>('Loading...');
@@ -30,12 +30,14 @@ export function ImageUploader({ onOpenGovtForm }: ImageUploaderProps = {}) {
   }>({ isOpen: false, fileName: '' });
 
   const processFiles = useCallback(async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
     setError(null);
     setIsLoading(true);
     setLoadingText('Processing uploaded files...');
 
     const validFiles = Array.from(files).filter(f => {
       if (!isSupportedImage(f) && !isPdfFile(f)) {
+        console.warn('Rejected file due to format:', f.name, f.type);
         setError(`Unsupported format: ${f.name}. Use JPG, PNG, WEBP, or PDF.`);
         return false;
       }
@@ -45,6 +47,11 @@ export function ImageUploader({ onOpenGovtForm }: ImageUploaderProps = {}) {
       }
       return true;
     });
+
+    if (validFiles.length === 0) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const loadedImages: EditorImage[] = [];
@@ -84,16 +91,24 @@ export function ImageUploader({ onOpenGovtForm }: ImageUploaderProps = {}) {
         } else {
           setLoadingText(`Loading image (${file.name})...`);
           const info = await loadImage(file);
-          const imgEl = await loadImageElement(info.objectUrl);
-          const thumbnailUrl = generateThumbnail(imgEl, 200);
+          let thumbnailUrl = info.objectUrl;
+          try {
+            const imgEl = await loadImageElement(info.objectUrl);
+            thumbnailUrl = generateThumbnail(imgEl, 200);
+          } catch (thumbErr) {
+            console.warn('Could not generate thumbnail, using objectUrl instead:', thumbErr);
+          }
           loadedImages.push({ ...info, thumbnailUrl });
         }
       }
 
       if (loadedImages.length > 0) {
         addImages(loadedImages);
+        // Automatically switch to crop step so user immediately enters passport photo crop workflow
+        setStep('crop');
       }
     } catch (err) {
+      console.error('File processing error:', err);
       if (err instanceof Error && err.message.includes('cancelled')) {
         return;
       }
@@ -101,7 +116,7 @@ export function ImageUploader({ onOpenGovtForm }: ImageUploaderProps = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [addImages]);
+  }, [addImages, setStep]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -405,7 +420,7 @@ export function ImageUploader({ onOpenGovtForm }: ImageUploaderProps = {}) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+        accept="image/*,.jpg,.jpeg,.png,.webp,.jfif,.pjpeg,.pjp,.bmp,.tif,.tiff,.avif,.pdf,application/pdf"
         multiple
         className="hidden"
         onChange={(e) => {

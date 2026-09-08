@@ -21,6 +21,7 @@ import {
   type CompressResult,
   compressCanvasToTargetKb,
 } from '@/lib/digital-form-exporter';
+import { isSupportedImage } from '@/lib/image-processing';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Exams' },
@@ -200,8 +201,8 @@ export function DigitalFormExportDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('Please upload an image file (JPEG, PNG, WEBP)');
+    if (!isSupportedImage(file)) {
+      setErrorMsg('Please upload an image file (JPG, PNG, WEBP, etc.)');
       return;
     }
 
@@ -285,7 +286,7 @@ export function DigitalFormExportDialog({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.jpg,.jpeg,.png,.webp,.jfif,.pjpeg,.pjp,.bmp,.tif,.tiff,.avif"
               className="hidden"
               onChange={handleFileUpload}
             />

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replaceImageBackground } from '../image-processing';
+import { replaceImageBackground, isSupportedImage } from '../image-processing';
 
 // Polyfill minimal canvas for Node environment if document is missing
 class MockCanvas {
@@ -97,3 +97,46 @@ test('replaceImageBackground: replaces background while protecting face and skin
   assert.equal(resData[highlightIdx + 1], 240, 'Highlight inside faceBox Green untouched');
   assert.equal(resData[highlightIdx + 2], 238, 'Highlight inside faceBox Blue untouched');
 });
+
+test('isSupportedImage: accepts standard, Windows edge-case, and modern image formats', () => {
+  // Mock File objects
+  const makeMockFile = (name: string, type: string): File => ({
+    name,
+    type,
+    size: 1024,
+    lastModified: Date.now(),
+    slice: () => new Blob(),
+    arrayBuffer: async () => new ArrayBuffer(0),
+    stream: () => ({} as any),
+    text: async () => '',
+    webkitRelativePath: '',
+    bytes: async () => new Uint8Array(),
+  } as unknown as File);
+
+  // Standard MIME types
+  assert.equal(isSupportedImage(makeMockFile('passport.jpg', 'image/jpeg')), true, 'image/jpeg should be supported');
+  assert.equal(isSupportedImage(makeMockFile('photo.png', 'image/png')), true, 'image/png should be supported');
+  assert.equal(isSupportedImage(makeMockFile('selfie.webp', 'image/webp')), true, 'image/webp should be supported');
+
+  // Windows / Browser edge case MIME types
+  assert.equal(isSupportedImage(makeMockFile('capture.jfif', 'image/jfif')), true, 'image/jfif should be supported');
+  assert.equal(isSupportedImage(makeMockFile('photo.pjpeg', 'image/pjpeg')), true, 'image/pjpeg should be supported');
+  assert.equal(isSupportedImage(makeMockFile('scan.bmp', 'image/bmp')), true, 'image/bmp should be supported');
+  assert.equal(isSupportedImage(makeMockFile('modern.avif', 'image/avif')), true, 'image/avif should be supported');
+  assert.equal(isSupportedImage(makeMockFile('anim.gif', 'image/gif')), true, 'image/gif should be supported');
+  assert.equal(isSupportedImage(makeMockFile('highres.tiff', 'image/tiff')), true, 'image/tiff should be supported');
+
+  // Windows Explorer missing/empty MIME type edge cases
+  assert.equal(isSupportedImage(makeMockFile('my_photo.jpg', '')), true, 'empty type .jpg should be supported');
+  assert.equal(isSupportedImage(makeMockFile('MY_PHOTO.JPEG', '')), true, 'uppercase .JPEG should be supported');
+  assert.equal(isSupportedImage(makeMockFile('SCAN_001.PNG', '')), true, 'uppercase .PNG should be supported');
+  assert.equal(isSupportedImage(makeMockFile('camera_shot.jfif', '')), true, 'empty type .jfif should be supported');
+  assert.equal(isSupportedImage(makeMockFile('portrait.webp', '')), true, 'empty type .webp should be supported');
+
+  // Non-image files should be rejected
+  assert.equal(isSupportedImage(makeMockFile('document.pdf', 'application/pdf')), false, 'PDF is handled by pdf processor, not image processor');
+  assert.equal(isSupportedImage(makeMockFile('notes.txt', 'text/plain')), false, 'text file should be rejected');
+  assert.equal(isSupportedImage(makeMockFile('program.exe', 'application/x-msdownload')), false, 'exe should be rejected');
+  assert.equal(isSupportedImage(makeMockFile('resume.docx', '')), false, 'docx without type should be rejected');
+});
+

@@ -357,42 +357,24 @@ function EditorContent() {
         ) : (
           /* Standard Photo Printing Mode (Upload -> Crop -> Layout -> Preview) */
           <div className="flex-1 flex overflow-hidden">
-            {/* Left Sidebar — Templates & Upload */}
+            {/* Left Sidebar — Templates & Layout */}
             <aside className="w-64 border-r border-border flex flex-col bg-card overflow-hidden flex-shrink-0">
-              {images.length === 0 ? (
-                <>
-                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Select Template
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <TemplateSelector />
-                  </div>
-                </>
-              ) : step === 'upload' ? (
-                <>
-                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Uploaded Files ({images.length})
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <ImageUploader onOpenGovtForm={() => setIsFormExportOpen(true)} />
-                  </div>
-                </>
-              ) : step === 'crop' ? (
-                <>
-                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Select Template
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <TemplateSelector />
-                  </div>
-                </>
-              ) : (
+              {step === 'layout' ? (
                 <>
                   <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Paper & Layout
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <PaperSelector />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Select Template
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <TemplateSelector />
                   </div>
                 </>
               )}
@@ -468,8 +450,8 @@ function EditorContent() {
               ) : null}
             </main>
 
-            {/* Right Sidebar — Image list (when in layout/crop step) */}
-            {images.length > 0 && (step === 'upload' || step === 'layout') && (
+            {/* Right Sidebar — Image list (when photos are loaded) */}
+            {images.length > 0 && (
               <aside className="w-56 border-l border-border bg-card overflow-hidden flex-shrink-0">
                 <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Images ({images.length})

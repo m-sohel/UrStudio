@@ -560,7 +560,7 @@ export function IDCardMode() {
               <input
                 ref={frontInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+                accept="image/*,.jpg,.jpeg,.png,.webp,.jfif,.pjpeg,.pjp,.bmp,.tif,.tiff,.avif,.pdf,application/pdf"
                 className="hidden"
                 onChange={(e) => {
                   if (e.target.files?.[0]) handleUploadSide(e.target.files[0], 'front');
@@ -570,7 +570,7 @@ export function IDCardMode() {
               <input
                 ref={backInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+                accept="image/*,.jpg,.jpeg,.png,.webp,.jfif,.pjpeg,.pjp,.bmp,.tif,.tiff,.avif,.pdf,application/pdf"
                 className="hidden"
                 onChange={(e) => {
                   if (e.target.files?.[0]) handleUploadSide(e.target.files[0], 'back');

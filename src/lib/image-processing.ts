@@ -54,17 +54,47 @@ export async function loadImage(file: File): Promise<ImageInfo> {
         id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         file,
         name: file.name,
-        width: img.naturalWidth,
-        height: img.naturalHeight,
+        width: img.naturalWidth || img.width || 1000,
+        height: img.naturalHeight || img.height || 1000,
         size: file.size,
-        type: file.type,
+        type: file.type || 'image/jpeg',
         objectUrl,
       });
     };
 
     img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error(`Failed to load image: ${file.name}`));
+      // Fallback: try FileReader readAsDataURL if createObjectURL had an issue
+      if (typeof FileReader !== 'undefined') {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const fallbackImg = new Image();
+          fallbackImg.onload = () => {
+            resolve({
+              id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              file,
+              name: file.name,
+              width: fallbackImg.naturalWidth || fallbackImg.width || 1000,
+              height: fallbackImg.naturalHeight || fallbackImg.height || 1000,
+              size: file.size,
+              type: file.type || 'image/jpeg',
+              objectUrl: reader.result as string,
+            });
+          };
+          fallbackImg.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error(`Failed to load image: ${file.name}. Format may be corrupted or unsupported.`));
+          };
+          fallbackImg.src = reader.result as string;
+        };
+        reader.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error(`Failed to read file: ${file.name}`));
+        };
+        reader.readAsDataURL(file);
+      } else {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error(`Failed to load image: ${file.name}`));
+      }
     };
 
     img.src = objectUrl;
@@ -78,16 +108,24 @@ export function generateThumbnail(
   img: HTMLImageElement,
   maxSize: number = 200
 ): string {
+  const width = img.naturalWidth || img.width || 200;
+  const height = img.naturalHeight || img.height || 200;
+  const scale = Math.min(maxSize / width, maxSize / height) || 1;
+  const targetW = Math.max(1, Math.round(width * scale));
+  const targetH = Math.max(1, Math.round(height * scale));
+
   const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D context not available');
+  if (!ctx) return img.src;
 
-  const scale = Math.min(maxSize / img.naturalWidth, maxSize / img.naturalHeight);
-  canvas.width = Math.round(img.naturalWidth * scale);
-  canvas.height = Math.round(img.naturalHeight * scale);
-
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.7);
+  try {
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    return canvas.toDataURL('image/jpeg', 0.7);
+  } catch {
+    return img.src;
+  }
 }
 
 /**
@@ -261,10 +299,18 @@ export function formatFileSize(bytes: number): string {
 
 /**
  * Check if a file is a supported image type.
+ * Robust against Windows empty MIME types and supports all standard photo formats.
  */
 export function isSupportedImage(file: File): boolean {
-  const supported = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  return supported.includes(file.type);
+  if (!file) return false;
+  const type = (file.type || '').toLowerCase();
+  if (type.startsWith('image/')) return true;
+  const name = (file.name || '').toLowerCase();
+  const supportedExtensions = [
+    '.jpg', '.jpeg', '.png', '.webp', '.jfif', '.pjpeg', '.pjp',
+    '.bmp', '.tif', '.tiff', '.avif', '.gif', '.svg'
+  ];
+  return supportedExtensions.some(ext => name.endsWith(ext));
 }
 
 /**
