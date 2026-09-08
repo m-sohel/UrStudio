@@ -263,6 +263,17 @@ export function LayoutPreview() {
           );
         })}
 
+        {layoutResult.totalItems === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1">
+              Photo dimensions ({template.width}×{template.height}mm) exceed printable area ({dims.width}×{dims.height}mm)
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Please switch to a larger paper size or select Landscape orientation in the sidebar.
+            </p>
+          </div>
+        )}
+
         {/* Dimension labels */}
         <div className="absolute -bottom-6 left-0 right-0 text-center text-[10px] text-muted-foreground">
           {dims.width}mm

@@ -197,8 +197,10 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
 
     const renderX = pos.x - bleedMm;
     const renderY = pos.y - bleedMm;
-    const renderW = itemWidth + bleedMm * 2;
-    const renderH = itemHeight + bleedMm * 2;
+    const cellW = pos.width || itemWidth;
+    const cellH = pos.height || itemHeight;
+    const renderW = cellW + bleedMm * 2;
+    const renderH = cellH + bleedMm * 2;
 
     // Render photo
     doc.addImage(cellImg, 'JPEG', renderX, renderY, renderW, renderH, undefined, 'FAST');
@@ -219,23 +221,23 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
         doc.setLineDashPattern([], 0);
       }
 
-      doc.rect(pos.x, pos.y, itemWidth, itemHeight);
+      doc.rect(pos.x, pos.y, cellW, cellH);
 
       if (b.style === 'double') {
         const offset = Math.max(0.3, borderW * 0.8);
-        doc.rect(pos.x + offset, pos.y + offset, itemWidth - offset * 2, itemHeight - offset * 2);
+        doc.rect(pos.x + offset, pos.y + offset, cellW - offset * 2, cellH - offset * 2);
       }
     } else if (showCuttingMarks) {
       // Fallback subtle cutting border
       doc.setDrawColor(160, 160, 160);
       doc.setLineWidth(0.15);
       doc.setLineDashPattern([1.5, 1], 0);
-      doc.rect(pos.x, pos.y, itemWidth, itemHeight);
+      doc.rect(pos.x, pos.y, cellW, cellH);
     }
 
     // Corner crop marks
     if (showCropMarks) {
-      drawCropMarks(doc, pos.x, pos.y, itemWidth, itemHeight);
+      drawCropMarks(doc, pos.x, pos.y, cellW, cellH);
     }
   }
 

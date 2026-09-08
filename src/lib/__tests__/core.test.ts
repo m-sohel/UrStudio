@@ -154,6 +154,68 @@ test('Layout Engine: 8 Passport photos on 4x6 inch paper (152.4x101.6mm) horizon
   }
 });
 
+test('Layout Engine: 4x6 standard photo print (101.6x152.4mm) on 4x6 inch paper yields 1 full copy in portrait & landscape', () => {
+  // Portrait orientation
+  const layoutPortrait = calculateLayout({
+    paperWidth: 101.6,
+    paperHeight: 152.4,
+    itemWidth: 101.6,
+    itemHeight: 152.4,
+    marginTop: 4.8,
+    marginRight: 3.2,
+    marginBottom: 4.8,
+    marginLeft: 3.2,
+    horizontalGap: 2,
+    verticalGap: 2,
+    maxCopies: 1,
+  });
+
+  assert.equal(layoutPortrait.totalItems, 1, 'Standard 4x6 print must yield 1 copy on 4x6 portrait paper');
+  assert.equal(layoutPortrait.columns, 1);
+  assert.equal(layoutPortrait.rows, 1);
+  assert.equal(layoutPortrait.positions.length, 1);
+  assert.equal(layoutPortrait.positions[0].width, 101.6);
+  assert.equal(layoutPortrait.positions[0].height, 152.4);
+
+  // Landscape orientation (auto-rotates to fit 152.4x101.6 paper)
+  const layoutLandscape = calculateLayout({
+    paperWidth: 152.4,
+    paperHeight: 101.6,
+    itemWidth: 101.6,
+    itemHeight: 152.4,
+    marginTop: 4.8,
+    marginRight: 3.2,
+    marginBottom: 4.8,
+    marginLeft: 3.2,
+    horizontalGap: 2,
+    verticalGap: 2,
+    maxCopies: 1,
+  });
+
+  assert.equal(layoutLandscape.totalItems, 1, 'Standard 4x6 print must yield 1 copy on 4x6 landscape paper');
+  assert.equal(layoutLandscape.columns, 1);
+  assert.equal(layoutLandscape.rows, 1);
+  assert.equal(layoutLandscape.positions.length, 1);
+});
+
+test('Layout Engine: 2x2 inch US Passport photos on 4x6 paper yields at least 4 copies', () => {
+  const layout = calculateLayout({
+    paperWidth: 152.4,
+    paperHeight: 101.6,
+    itemWidth: 50.8,
+    itemHeight: 50.8,
+    marginTop: 4.8,
+    marginRight: 3.2,
+    marginBottom: 4.8,
+    marginLeft: 3.2,
+    horizontalGap: 2,
+    verticalGap: 2,
+    maxCopies: 4,
+  });
+
+  assert.ok(layout.totalItems >= 4, `US passport photos should fit at least 4 copies on 4x6 sheet, got ${layout.totalItems}`);
+});
+
 test('Layout Engine: Overflow prevention when item is larger than paper', () => {
   const layout = calculateLayout({
     paperWidth: 50,

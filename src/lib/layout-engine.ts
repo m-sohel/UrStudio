@@ -82,12 +82,10 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   } = input;
 
   // Apply rotation to item dimensions
-  const isRotated = rotation === 90 || rotation === 270;
-  const effectiveItemWidth = isRotated ? itemHeight : itemWidth;
-  const effectiveItemHeight = isRotated ? itemWidth : itemHeight;
+  let isRotated = rotation === 90 || rotation === 270;
+  let effectiveItemWidth = isRotated ? itemHeight : itemWidth;
+  let effectiveItemHeight = isRotated ? itemWidth : itemHeight;
 
-  // Studio-standard calibration for 4x6 inch paper (152.4 x 101.6 mm landscape) with standard ~35x45mm passport photos:
-  // Automatically fit exactly 4 columns x 2 rows = 8 photos horizontally without clipping
   let effMarginLeft = marginLeft;
   let effMarginRight = marginRight;
   let effMarginTop = marginTop;
@@ -95,23 +93,85 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   let effHGap = horizontalGap;
   let effVGap = verticalGap;
 
-  const is4x6Landscape = Math.abs(paperWidth - 152.4) < 1.0 && Math.abs(paperHeight - 101.6) < 1.0;
-  const is35x45Passport = Math.abs(effectiveItemWidth - 35) < 1.5 && Math.abs(effectiveItemHeight - 45) < 1.5;
+  // 1. Auto-rotation detection:
+  // If the item physically cannot fit in its current orientation, but fits when rotated 90 degrees,
+  // auto-rotate it to match the sheet orientation (e.g. 4x6 photo on 4x6 landscape paper)
+  const fitsDirect = effectiveItemWidth <= paperWidth + 0.5 && effectiveItemHeight <= paperHeight + 0.5;
+  const fitsRotated = effectiveItemHeight <= paperWidth + 0.5 && effectiveItemWidth <= paperHeight + 0.5;
 
-  if (is4x6Landscape && is35x45Passport) {
-    if (effHGap > 2) effHGap = 2;
-    if (effVGap > 2) effVGap = 2;
-    const requiredW = 4 * effectiveItemWidth + 3 * effHGap; // 146mm
-    if (paperWidth - effMarginLeft - effMarginRight < requiredW) {
-      const remainingX = Math.max(1, (paperWidth - requiredW) / 2);
-      effMarginLeft = remainingX;
-      effMarginRight = remainingX;
+  if (!fitsDirect && fitsRotated) {
+    const tempW = effectiveItemWidth;
+    effectiveItemWidth = effectiveItemHeight;
+    effectiveItemHeight = tempW;
+    isRotated = !isRotated;
+  }
+
+  // 2. Full paper print check (e.g. 4x6 in standard print on 4x6 paper, or A4 print on A4 paper)
+  const isFullPaperPrint = Math.abs(effectiveItemWidth - paperWidth) < 2.5 && Math.abs(effectiveItemHeight - paperHeight) < 2.5;
+
+  if (isFullPaperPrint) {
+    // 1-to-1 full photo print on paper (borderless photo print)
+    effMarginLeft = 0;
+    effMarginRight = 0;
+    effMarginTop = 0;
+    effMarginBottom = 0;
+    effHGap = 0;
+    effVGap = 0;
+  } else {
+    // Studio-standard calibration for 4x6 inch paper (152.4 x 101.6 mm landscape) with standard ~35x45mm passport photos:
+    // Automatically fit exactly 4 columns x 2 rows = 8 photos horizontally without clipping
+    const is4x6Landscape = Math.abs(paperWidth - 152.4) < 1.0 && Math.abs(paperHeight - 101.6) < 1.0;
+    const is35x45Passport = Math.abs(effectiveItemWidth - 35) < 1.5 && Math.abs(effectiveItemHeight - 45) < 1.5;
+
+    if (is4x6Landscape && is35x45Passport) {
+      if (effHGap > 2) effHGap = 2;
+      if (effVGap > 2) effVGap = 2;
+      const requiredW = 4 * effectiveItemWidth + 3 * effHGap; // 146mm
+      if (paperWidth - effMarginLeft - effMarginRight < requiredW) {
+        const remainingX = Math.max(1, (paperWidth - requiredW) / 2);
+        effMarginLeft = remainingX;
+        effMarginRight = remainingX;
+      }
+      const requiredH = 2 * effectiveItemHeight + 1 * effVGap; // 92mm
+      if (paperHeight - effMarginTop - effMarginBottom < requiredH) {
+        const remainingY = Math.max(1, (paperHeight - requiredH) / 2);
+        effMarginTop = remainingY;
+        effMarginBottom = remainingY;
+      }
     }
-    const requiredH = 2 * effectiveItemHeight + 1 * effVGap; // 92mm
-    if (paperHeight - effMarginTop - effMarginBottom < requiredH) {
-      const remainingY = Math.max(1, (paperHeight - requiredH) / 2);
-      effMarginTop = remainingY;
-      effMarginBottom = remainingY;
+
+    // Studio calibration for 2x2 inch (50.8x50.8mm) US Passport photos on 4x6 inch paper:
+    // 2 rows fit in 101.6mm landscape height, 2 columns fit in 101.6mm portrait width -> 4 copies
+    const is4x6Paper = (Math.abs(paperWidth - 152.4) < 1.0 && Math.abs(paperHeight - 101.6) < 1.0)
+      || (Math.abs(paperWidth - 101.6) < 1.0 && Math.abs(paperHeight - 152.4) < 1.0);
+    const is2x2Photo = Math.abs(effectiveItemWidth - 50.8) < 1.5 && Math.abs(effectiveItemHeight - 50.8) < 1.5;
+
+    if (is4x6Paper && is2x2Photo) {
+      if (is4x6Landscape) {
+        effMarginTop = 0;
+        effMarginBottom = 0;
+        effVGap = 0;
+        if (effHGap > 2) effHGap = 2;
+      } else {
+        effMarginLeft = 0;
+        effMarginRight = 0;
+        effHGap = 0;
+        if (effVGap > 2) effVGap = 2;
+      }
+    }
+
+    // Dynamic margin relaxation:
+    // If the photo can physically fit on the raw paper, but user-configured margins are slightly too wide,
+    // automatically adjust margins to center the photo instead of returning 0 copies and an empty sheet!
+    if (paperWidth - effMarginLeft - effMarginRight < effectiveItemWidth && effectiveItemWidth <= paperWidth + 0.5) {
+      const marginX = Math.max(0, (paperWidth - effectiveItemWidth) / 2);
+      effMarginLeft = marginX;
+      effMarginRight = marginX;
+    }
+    if (paperHeight - effMarginTop - effMarginBottom < effectiveItemHeight && effectiveItemHeight <= paperHeight + 0.5) {
+      const marginY = Math.max(0, (paperHeight - effectiveItemHeight) / 2);
+      effMarginTop = marginY;
+      effMarginBottom = marginY;
     }
   }
 
@@ -119,8 +179,8 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   const availableWidth = paperWidth - effMarginLeft - effMarginRight;
   const availableHeight = paperHeight - effMarginTop - effMarginBottom;
 
-  // Cannot fit anything
-  if (availableWidth < effectiveItemWidth || availableHeight < effectiveItemHeight) {
+  // Cannot fit anything (item is strictly larger than paper)
+  if (availableWidth < effectiveItemWidth - 0.5 || availableHeight < effectiveItemHeight - 0.5) {
     return {
       columns: 0,
       rows: 0,
@@ -136,15 +196,16 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   }
 
   // Calculate how many columns and rows fit
-  // First item takes full width, subsequent items need gap + width
-  let columns = Math.floor(
-    (availableWidth - effectiveItemWidth + 0.1) / (effectiveItemWidth + effHGap)
+  let columns = isFullPaperPrint ? 1 : Math.floor(
+    (availableWidth - effectiveItemWidth + 0.05) / (effectiveItemWidth + effHGap)
   ) + 1;
 
-  let rows = Math.floor(
-    (availableHeight - effectiveItemHeight + 0.1) / (effectiveItemHeight + effVGap)
+  let rows = isFullPaperPrint ? 1 : Math.floor(
+    (availableHeight - effectiveItemHeight + 0.05) / (effectiveItemHeight + effVGap)
   ) + 1;
 
+  const is4x6Landscape = Math.abs(paperWidth - 152.4) < 1.0 && Math.abs(paperHeight - 101.6) < 1.0;
+  const is35x45Passport = Math.abs(effectiveItemWidth - 35) < 1.5 && Math.abs(effectiveItemHeight - 45) < 1.5;
   if (is4x6Landscape && is35x45Passport) {
     columns = Math.max(4, columns);
     rows = Math.max(2, rows);
@@ -160,8 +221,8 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   const totalContentHeight = rows * effectiveItemHeight + (rows - 1) * effVGap;
 
   // Center the grid within the available area
-  const offsetX = effMarginLeft + (availableWidth - totalContentWidth) / 2;
-  const offsetY = effMarginTop + (availableHeight - totalContentHeight) / 2;
+  const offsetX = effMarginLeft + Math.max(0, (availableWidth - totalContentWidth) / 2);
+  const offsetY = effMarginTop + Math.max(0, (availableHeight - totalContentHeight) / 2);
 
   let count = 0;
   for (let row = 0; row < rows && count < totalItems; row++) {

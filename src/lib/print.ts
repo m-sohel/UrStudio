@@ -83,8 +83,10 @@ export function generatePrintHTML(config: PrintConfig): string {
     // Expand by bleed if configured
     const renderX = pos.x - bleedMm;
     const renderY = pos.y - bleedMm;
-    const renderW = itemWidth + (bleedMm * 2);
-    const renderH = itemHeight + (bleedMm * 2);
+    const cellW = pos.width || itemWidth;
+    const cellH = pos.height || itemHeight;
+    const renderW = cellW + (bleedMm * 2);
+    const renderH = cellH + (bleedMm * 2);
 
     const cropMarksHtml = showCropMarks ? `
       <div class="crop-mark tl"></div>

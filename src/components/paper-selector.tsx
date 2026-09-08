@@ -79,6 +79,13 @@ export function PaperSelector() {
     return result.totalItems;
   }, [paper, templateDims, paperSettings]);
 
+  // Ensure copies does not exceed maxCopies when template changes to a smaller sheet layout
+  useEffect(() => {
+    if (maxCopies > 0 && copies > maxCopies) {
+      setCopies(maxCopies);
+    }
+  }, [maxCopies, copies, setCopies]);
+
   return (
     <div className="space-y-4 p-4">
       {/* Paper Size */}
@@ -88,8 +95,13 @@ export function PaperSelector() {
           value={paperSettings.paperId}
           onValueChange={(v) => {
             if (v === '4x6') {
-              setPaperSettings(getDefaultPaperSettings('4x6'));
-              setCopies(8);
+              const tmpl = selectedTemplateId ? getPhotoTemplate(selectedTemplateId) : null;
+              const isPhoto4x6 = tmpl?.id === 'photo-4x6';
+              setPaperSettings({
+                ...getDefaultPaperSettings('4x6'),
+                orientation: isPhoto4x6 ? 'portrait' : 'landscape',
+              });
+              setCopies(tmpl?.defaultCopies || (isPhoto4x6 ? 1 : 8));
             } else if (v) {
               setPaperSettings({ paperId: v });
             }
@@ -171,9 +183,10 @@ export function PaperSelector() {
           variant="ghost"
           size="sm"
           className="w-full text-xs"
-          onClick={() => setCopies(maxCopies)}
+          onClick={() => setCopies(Math.max(1, maxCopies))}
+          disabled={maxCopies === 0}
         >
-          Fill Paper ({maxCopies} copies)
+          Fill Paper ({maxCopies} {maxCopies === 1 ? 'copy' : 'copies'})
         </Button>
       </div>
 
