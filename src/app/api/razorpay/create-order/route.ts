@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
 
     // Authoritative server-side plan definitions to prevent client-side price tampering
     const AUTHORITATIVE_PLANS: Record<string, { price: number; name: string }> = {
-      single_pass: { price: 29, name: 'Per-Download Pass' },
-      annual: { price: 199, name: 'Shop Pass' },
-      lifetime: { price: 499, name: 'Lifetime Studio' },
+      single_pass: { price: 19, name: 'Per-Download Pass' },
+      monthly: { price: 29, name: 'Monthly Shop Pass' },
+      annual: { price: 149, name: 'Annual Shop Pass' },
     };
 
     const targetTier = (tier && AUTHORITATIVE_PLANS[tier]) ? tier : 'annual';

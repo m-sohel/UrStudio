@@ -50,6 +50,12 @@ export interface IDCardPrintConfig {
   showCropMarks?: boolean;
   /** For PVC direct printing: print only front or back */
   pvcSingleSide?: 'front' | 'back';
+  positions?: {
+    front: { x: number; y: number; width: number; height: number };
+    back?: { x: number; y: number; width: number; height: number };
+  }[];
+  frontRotation?: number;
+  backRotation?: number;
   watermark?: WatermarkPrintConfig;
 }
 
@@ -95,6 +101,11 @@ export function generatePrintHTML(config: PrintConfig): string {
       <div class="crop-mark br"></div>
     ` : '';
 
+    const isRot = pos.rotation === 90;
+    const imgStyle = isRot
+      ? `width: ${renderH}mm; height: ${renderW}mm; transform: rotate(90deg); transform-origin: center center; object-fit: cover; display: block;`
+      : 'width: 100%; height: 100%; object-fit: cover; display: block;';
+
     return `<div class="photo-cell-wrapper" style="
       position: absolute;
       left: ${renderX}mm;
@@ -107,14 +118,12 @@ export function generatePrintHTML(config: PrintConfig): string {
         height: 100%;
         overflow: hidden;
         position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         ${cellBorder}
       ">
-        <img src="${cellImg}" style="
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        " />
+        <img src="${cellImg}" style="${imgStyle}" />
       </div>
       ${cropMarksHtml}
     </div>`;
@@ -251,11 +260,12 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
     paperWidth, paperHeight, orientation, cardWidth, cardHeight,
     frontImageUrl, backImageUrl, showCuttingMarks, pvcSingleSide,
     bleedMm = 0, showCropMarks = true, watermark,
+    positions, frontRotation = 0, backRotation = 0,
   } = config;
 
   const isPVC = pvcSingleSide !== undefined;
-  const pageWidth = isPVC ? cardWidth : (orientation === 'landscape' ? paperHeight : paperWidth);
-  const pageHeight = isPVC ? cardHeight : (orientation === 'landscape' ? paperWidth : paperHeight);
+  const pageWidth = isPVC ? cardWidth : paperWidth;
+  const pageHeight = isPVC ? cardHeight : paperHeight;
 
   let cardCells = '';
 
@@ -281,15 +291,10 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
         " />
       </div>`;
   } else {
-    // Paper Sheet Printing (Stacked Layout with optional cutting guide)
-    const margin = 10;
-    const gap = 5;
+    // Paper Sheet Printing
     const borderStyle = showCuttingMarks
       ? 'border: 0.2mm dashed rgba(0,0,0,0.4); border-radius: 2mm;'
       : '';
-
-    const renderW = cardWidth + (bleedMm * 2);
-    const renderH = cardHeight + (bleedMm * 2);
 
     const cropMarksHtml = showCropMarks ? `
       <div class="crop-mark tl"></div>
@@ -298,57 +303,73 @@ export function generateIDCardPrintHTML(config: IDCardPrintConfig): string {
       <div class="crop-mark br"></div>
     ` : '';
 
-    if (frontImageUrl) {
-      cardCells += `
-        <div class="card-cell-wrapper" style="
-          position: absolute;
-          left: ${margin - bleedMm}mm;
-          top: ${margin - bleedMm}mm;
-          width: ${renderW}mm;
-          height: ${renderH}mm;
-        ">
-          <div class="card-cell" style="
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            ${borderStyle}
-          ">
-            <img src="${frontImageUrl}" style="
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-              display: block;
-            " />
-          </div>
-          ${cropMarksHtml}
-        </div>`;
-    }
+    const renderPositions = positions && positions.length > 0
+      ? positions
+      : [{
+          front: { x: (pageWidth - cardWidth) / 2, y: (pageHeight - cardHeight * 2 - 5) / 2, width: cardWidth, height: cardHeight },
+          back: backImageUrl ? { x: (pageWidth - cardWidth) / 2, y: (pageHeight - cardHeight * 2 - 5) / 2 + cardHeight + 5, width: cardWidth, height: cardHeight } : undefined,
+        }];
 
-    if (backImageUrl) {
-      const backTop = margin + cardHeight + gap;
-      cardCells += `
-        <div class="card-cell-wrapper" style="
-          position: absolute;
-          left: ${margin - bleedMm}mm;
-          top: ${backTop - bleedMm}mm;
-          width: ${renderW}mm;
-          height: ${renderH}mm;
-        ">
-          <div class="card-cell" style="
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            ${borderStyle}
+    for (const pos of renderPositions) {
+      if (frontImageUrl) {
+        const renderW = pos.front.width + (bleedMm * 2);
+        const renderH = pos.front.height + (bleedMm * 2);
+        const fImgStyle = frontRotation === 90
+          ? `width: ${renderH}mm; height: ${renderW}mm; transform: rotate(90deg); transform-origin: center center; object-fit: cover; display: block;`
+          : 'width: 100%; height: 100%; object-fit: cover; display: block;';
+
+        cardCells += `
+          <div class="card-cell-wrapper" style="
+            position: absolute;
+            left: ${pos.front.x - bleedMm}mm;
+            top: ${pos.front.y - bleedMm}mm;
+            width: ${renderW}mm;
+            height: ${renderH}mm;
           ">
-            <img src="${backImageUrl}" style="
+            <div class="card-cell" style="
               width: 100%;
               height: 100%;
-              object-fit: cover;
-              display: block;
-            " />
-          </div>
-          ${cropMarksHtml}
-        </div>`;
+              overflow: hidden;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              ${borderStyle}
+            ">
+              <img src="${frontImageUrl}" style="${fImgStyle}" />
+            </div>
+            ${cropMarksHtml}
+          </div>`;
+      }
+
+      if (pos.back && backImageUrl) {
+        const renderW = pos.back.width + (bleedMm * 2);
+        const renderH = pos.back.height + (bleedMm * 2);
+        const bImgStyle = backRotation === 90
+          ? `width: ${renderH}mm; height: ${renderW}mm; transform: rotate(90deg); transform-origin: center center; object-fit: cover; display: block;`
+          : 'width: 100%; height: 100%; object-fit: cover; display: block;';
+
+        cardCells += `
+          <div class="card-cell-wrapper" style="
+            position: absolute;
+            left: ${pos.back.x - bleedMm}mm;
+            top: ${pos.back.y - bleedMm}mm;
+            width: ${renderW}mm;
+            height: ${renderH}mm;
+          ">
+            <div class="card-cell" style="
+              width: 100%;
+              height: 100%;
+              overflow: hidden;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              ${borderStyle}
+            ">
+              <img src="${backImageUrl}" style="${bImgStyle}" />
+            </div>
+            ${cropMarksHtml}
+          </div>`;
+      }
     }
   }
 

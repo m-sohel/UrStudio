@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     // Payment is authentic & confirmed by Razorpay!
     // Resolve authoritative tier: check order notes from Razorpay API if available
-    let authoritativeTier: LicenseTier = tier === 'single_pass' ? 'single_pass' : tier === 'lifetime' ? 'lifetime' : 'annual';
+    let authoritativeTier: LicenseTier = tier === 'single_pass' ? 'single_pass' : tier === 'monthly' ? 'monthly' : 'annual';
     const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
     if (keyId && keySecret) {
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         if (orderRes.ok) {
           const orderData = await orderRes.json();
           const orderTier = orderData?.notes?.tier;
-          if (orderTier === 'single_pass' || orderTier === 'annual' || orderTier === 'lifetime') {
+          if (orderTier === 'single_pass' || orderTier === 'annual' || orderTier === 'monthly') {
             authoritativeTier = orderTier;
           }
         }
@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Deterministically generate authentic offline license key
-    const finalTier: 'annual' | 'lifetime' | 'single_pass' =
-      authoritativeTier === 'single_pass' || authoritativeTier === 'lifetime'
+    const finalTier: 'annual' | 'monthly' | 'single_pass' =
+      authoritativeTier === 'single_pass' || authoritativeTier === 'monthly'
         ? authoritativeTier
         : 'annual';
 
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const licenseKey = generateOfflineLicenseKey(
       finalTier,
-      { daysValid: finalTier === 'annual' ? 365 : undefined, seed }
+      { daysValid: finalTier === 'annual' ? 365 : finalTier === 'monthly' ? 30 : undefined, seed }
     );
 
     return NextResponse.json({

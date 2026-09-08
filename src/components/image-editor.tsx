@@ -8,7 +8,7 @@ import {
   Sun, Contrast, Palette, RotateCcwIcon, Check, X,
   Printer, Sparkles, Sliders, ShieldAlert, Eye,
   UserCheck, ScanFace, Paintbrush, Wand2, RefreshCw, AlertCircle,
-  Upload, FileCheck2, Users
+  Upload, FileCheck2, Users, RectangleHorizontal
 } from 'lucide-react';
 import { DigitalFormExportDialog } from '@/components/digital-form-export-dialog';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import {
 import { mmToPx, DEFAULT_DPI } from '@/lib/units';
 import { getPhotoTemplate, getIDCardTemplate } from '@/lib/templates';
 import { applyPrintColorCalibrationAsync } from '@/lib/color-management';
+import { useLicenseStore } from '@/store/license-store';
 
 const BG_COLOR_PRESETS = [
   { name: 'Studio White', color: '#FFFFFF', desc: 'Standard Passport/Visa' },
@@ -105,11 +106,29 @@ export function ImageEditor() {
     ? (selectedTemplateType === 'photo' ? getPhotoTemplate(selectedTemplateId) : getIDCardTemplate(selectedTemplateId))
     : null;
 
-  // Get aspect ratio from selected template
+  // Crop orientation: 'portrait' (vertical) vs 'landscape' (horizontal)
+  const [cropOrientation, setCropOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
+  // Get aspect ratio from selected template with orientation support
   const getAspectRatio = useCallback((): number => {
     if (!selectedTemplateId) return NaN; // Free crop
-    return activeTemplate ? activeTemplate.aspectRatio : NaN;
-  }, [selectedTemplateId, activeTemplate]);
+    if (!activeTemplate) return NaN;
+    return cropOrientation === 'landscape'
+      ? (activeTemplate.height / activeTemplate.width)
+      : (activeTemplate.width / activeTemplate.height);
+  }, [selectedTemplateId, activeTemplate, cropOrientation]);
+
+  const handleToggleCropOrientation = () => {
+    const next = cropOrientation === 'portrait' ? 'landscape' : 'portrait';
+    setCropOrientation(next);
+    const cropper = cropperRef.current?.cropper;
+    if (cropper && activeTemplate) {
+      const newRatio = next === 'landscape'
+        ? (activeTemplate.height / activeTemplate.width)
+        : (activeTemplate.width / activeTemplate.height);
+      cropper.setAspectRatio(newRatio);
+    }
+  };
 
   // 1. Biometric Face Centering (Smart Crop)
   const handleBiometricCenterFace = async () => {
@@ -181,6 +200,13 @@ export function ImageEditor() {
     const cropper = cropperRef.current?.cropper;
     if (!cropper || !selectedImage) return;
 
+    // Check BG replacement limit for free users (2 per session)
+    const licenseState = useLicenseStore.getState();
+    if (!licenseState.canUseBgReplacement()) {
+      licenseState.openUpgradeModal('Unlimited Background Replacements');
+      return;
+    }
+
     try {
       setIsProcessingBg(true);
       setBiometricFeedback('Processing clean background replacement with face/skin lock...');
@@ -220,7 +246,10 @@ export function ImageEditor() {
             if (cropper) cropper.setData(prevCrop);
           } catch {}
         }, 150);
-        setBiometricFeedback('Background updated cleanly (subject protected)!');
+        // Track BG replacement usage for session limit
+        useLicenseStore.getState().incrementBgReplacement();
+        const remaining = licenseState.isPro ? '∞' : `${Math.max(0, 2 - useLicenseStore.getState().bgReplacementsUsed)}`;
+        setBiometricFeedback(`Background updated cleanly (${remaining} free replacement${remaining === '1' ? '' : 's'} remaining)`);
         setTimeout(() => setBiometricFeedback(null), 3500);
       }
     } catch (err) {
@@ -289,8 +318,10 @@ export function ImageEditor() {
         : getIDCardTemplate(selectedTemplateId);
 
       if (template) {
-        outputWidth = mmToPx(template.width, DEFAULT_DPI);
-        outputHeight = mmToPx(template.height, DEFAULT_DPI);
+        const w = cropOrientation === 'landscape' ? template.height : template.width;
+        const h = cropOrientation === 'landscape' ? template.width : template.height;
+        outputWidth = mmToPx(w, DEFAULT_DPI);
+        outputHeight = mmToPx(h, DEFAULT_DPI);
       }
     }
 
@@ -485,6 +516,20 @@ export function ImageEditor() {
         </Button>
         <Button variant="ghost" size="sm" onClick={handleFlipV} title="Flip Vertical">
           <FlipVertical className="w-3.5 h-3.5" />
+        </Button>
+
+        <Separator orientation="vertical" className="h-5 mx-0.5" />
+
+        {/* Dual Crop Orientation Choice (Vertical vs Horizontal) */}
+        <Button
+          variant={cropOrientation === 'landscape' ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={handleToggleCropOrientation}
+          className="text-xs h-7 gap-1 border-primary/30"
+          title={`Crop orientation: ${cropOrientation === 'portrait' ? 'Vertical (Portrait)' : 'Horizontal (Landscape)'}. Click to switch.`}
+        >
+          <RectangleHorizontal className="w-3.5 h-3.5" />
+          <span>{cropOrientation === 'portrait' ? 'Vertical' : 'Horizontal'}</span>
         </Button>
 
         <Separator orientation="vertical" className="h-5 mx-0.5" />

@@ -6,17 +6,17 @@
  * 
  * Features:
  * - Deterministic SHA-256 checksum offline license key validation
- * - License tiers: Free, Single-Export Pass (₹29), Annual Shop Pass (₹199/yr), Lifetime Studio Pass (₹499)
+ * - License tiers: Free, Single-Export Pass (₹19), Monthly Shop Pass (₹29/mo), Annual Shop Pass (₹149/yr)
  * - UPI deep-link generation for PhonePe, GPay, Paytm & BHIM
  * - Built-in offline QR code generator for direct phone scanning
  */
 
-export type LicenseTier = 'free' | 'single_pass' | 'annual' | 'lifetime';
+export type LicenseTier = 'free' | 'single_pass' | 'monthly' | 'annual';
 
 export interface LicenseVerificationResult {
   valid: boolean;
   tier: LicenseTier;
-  expiresAt: number | null; // null for lifetime or free
+  expiresAt: number | null; // null for free
   message: string;
 }
 
@@ -130,24 +130,23 @@ export function sha256Sync(ascii: string): string {
  * Generates an offline verifiable license key for a given tier.
  */
 export function generateOfflineLicenseKey(
-  tier: 'annual' | 'lifetime' | 'single_pass',
+  tier: 'annual' | 'monthly' | 'single_pass',
   options: { daysValid?: number; seed?: string } = {}
 ): string {
-  const { daysValid = 365, seed = Math.random().toString(36).slice(2, 8).toUpperCase() } = options;
+  const defaultDays = tier === 'monthly' ? 30 : 365;
+  const { daysValid = defaultDays, seed = Math.random().toString(36).slice(2, 8).toUpperCase() } = options;
 
-  let expiryTag = 'LIFETIME';
-  if (tier === 'annual') {
+  let expiryTag = 'PASS1';
+  if (tier === 'annual' || tier === 'monthly') {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + daysValid);
     expiryTag = expiryDate.toISOString().slice(0, 10).replace(/-/g, ''); // e.g. 20270907
-  } else if (tier === 'single_pass') {
-    expiryTag = 'PASS1';
   }
 
   const payload = `URSTUDIO:${tier.toUpperCase()}:${expiryTag}:${seed}`;
   const fullHash = sha256Sync(`${payload}:${LICENSE_SECRET_SALT}`);
   const signature = fullHash.slice(0, 8).toUpperCase();
-  const tierCode = tier === 'annual' ? 'ANNU' : tier === 'lifetime' ? 'LIFE' : 'PASS';
+  const tierCode = tier === 'annual' ? 'ANNU' : tier === 'monthly' ? 'MNTH' : 'PASS';
 
   return `URSTUDIO-${tierCode}-${expiryTag}-${seed}-${signature}`;
 }
@@ -173,12 +172,13 @@ export function verifyOfflineLicenseKey(rawKey: string): LicenseVerificationResu
     };
   }
 
-  if (cleanKey === 'URSTUDIO-LIFETIME-VIP') {
+  if (cleanKey === 'URSTUDIO-MONTHLY-DEMO-2026') {
+    const oneMonthFromNow = Date.now() + 30 * 24 * 60 * 60 * 1000;
     return {
       valid: true,
-      tier: 'lifetime',
-      expiresAt: null,
-      message: 'Lifetime VIP Studio License activated successfully.',
+      tier: 'monthly',
+      expiresAt: oneMonthFromNow,
+      message: 'Demo Monthly Shop Pass activated successfully (Valid for 30 days).',
     };
   }
 
@@ -195,7 +195,7 @@ export function verifyOfflineLicenseKey(rawKey: string): LicenseVerificationResu
 
   let resolvedTier: LicenseTier = 'free';
   if (tierCode === 'ANNU') resolvedTier = 'annual';
-  else if (tierCode === 'LIFE') resolvedTier = 'lifetime';
+  else if (tierCode === 'MNTH') resolvedTier = 'monthly';
   else if (tierCode === 'PASS') resolvedTier = 'single_pass';
   else {
     return { valid: false, tier: 'free', expiresAt: null, message: 'Unrecognized license tier in key.' };
@@ -209,9 +209,9 @@ export function verifyOfflineLicenseKey(rawKey: string): LicenseVerificationResu
     return { valid: false, tier: 'free', expiresAt: null, message: 'Invalid key signature or checksum mismatch.' };
   }
 
-  // Check expiration if annual
+  // Check expiration if annual or monthly
   let expiresAt: number | null = null;
-  if (resolvedTier === 'annual') {
+  if (resolvedTier === 'annual' || resolvedTier === 'monthly') {
     if (expiryTag.length === 8) {
       const year = parseInt(expiryTag.slice(0, 4), 10);
       const month = parseInt(expiryTag.slice(4, 6), 10) - 1;
@@ -220,11 +220,12 @@ export function verifyOfflineLicenseKey(rawKey: string): LicenseVerificationResu
       expiresAt = expDate.getTime();
 
       if (Date.now() > expiresAt) {
+        const tierLabel = resolvedTier === 'monthly' ? 'Monthly Shop Pass' : 'Annual Shop Pass';
         return {
           valid: false,
           tier: 'free',
           expiresAt,
-          message: `This Annual Shop Pass expired on ${expDate.toLocaleDateString()}.`,
+          message: `This ${tierLabel} expired on ${expDate.toLocaleDateString()}.`,
         };
       }
     }

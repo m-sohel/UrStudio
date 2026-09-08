@@ -8,9 +8,11 @@ import { Separator } from '@/components/ui/separator';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Minus, Plus, Square, Palette } from 'lucide-react';
+import { Minus, Plus, Square, Palette, Crown, Lock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEditorStore } from '@/store/editor-store';
+import { useLicenseStore } from '@/store/license-store';
 import {
   PAPER_SIZES, getPaperSize, getEffectivePaperDimensions,
   getPhotoTemplate, getIDCardTemplate, getDefaultPaperSettings,
@@ -24,7 +26,10 @@ export function PaperSelector() {
     selectedTemplateId, selectedTemplateType,
     copies, setCopies,
     setLayoutResult,
+    rotation, setRotation,
   } = useEditorStore();
+
+  const { isPro, openUpgradeModal } = useLicenseStore();
 
   const paper = getPaperSize(paperSettings.paperId);
 
@@ -54,11 +59,12 @@ export function PaperSelector() {
       marginLeft: paperSettings.marginLeft,
       horizontalGap: paperSettings.horizontalGap,
       verticalGap: paperSettings.verticalGap,
+      rotation: (rotation === 90 || rotation === 270) ? 90 : 0,
       maxCopies: copies,
     });
 
     setLayoutResult(result);
-  }, [paper, templateDims, paperSettings, copies, setLayoutResult]);
+  }, [paper, templateDims, paperSettings, copies, rotation, setLayoutResult]);
 
   // Max copies based on layout
   const maxCopies = useMemo(() => {
@@ -75,9 +81,10 @@ export function PaperSelector() {
       marginLeft: paperSettings.marginLeft,
       horizontalGap: paperSettings.horizontalGap,
       verticalGap: paperSettings.verticalGap,
+      rotation: (rotation === 90 || rotation === 270) ? 90 : 0,
     });
     return result.totalItems;
-  }, [paper, templateDims, paperSettings]);
+  }, [paper, templateDims, paperSettings, rotation]);
 
   // Ensure copies does not exceed maxCopies when template changes to a smaller sheet layout
   useEffect(() => {
@@ -87,22 +94,15 @@ export function PaperSelector() {
   }, [maxCopies, copies, setCopies]);
 
   return (
-    <div className="space-y-4 p-4">
-      {/* Paper Size */}
+    <ScrollArea className="h-full">
+      <div className="space-y-4 p-4 pb-20">
+        {/* Paper Size */}
       <div className="space-y-2">
         <Label className="text-xs font-medium">Paper Size</Label>
         <Select
           value={paperSettings.paperId}
           onValueChange={(v) => {
-            if (v === '4x6') {
-              const tmpl = selectedTemplateId ? getPhotoTemplate(selectedTemplateId) : null;
-              const isPhoto4x6 = tmpl?.id === 'photo-4x6';
-              setPaperSettings({
-                ...getDefaultPaperSettings('4x6'),
-                orientation: isPhoto4x6 ? 'portrait' : 'landscape',
-              });
-              setCopies(tmpl?.defaultCopies || (isPhoto4x6 ? 1 : 8));
-            } else if (v) {
+            if (v) {
               setPaperSettings({ paperId: v });
             }
           }}
@@ -120,27 +120,62 @@ export function PaperSelector() {
         </Select>
       </div>
 
-      {/* Orientation */}
+      {/* Orientation — Available to all users */}
       <div className="space-y-2">
-        <Label className="text-xs font-medium">Orientation</Label>
+        <Label className="text-xs font-medium">Paper Orientation</Label>
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant={paperSettings.orientation === 'portrait' ? 'default' : 'outline'}
             size="sm"
-            className="h-9"
+            className="h-8 text-xs px-1.5 font-medium"
             onClick={() => setPaperSettings({ orientation: 'portrait' })}
           >
-            Portrait
+            Portrait (Vertical)
           </Button>
           <Button
             variant={paperSettings.orientation === 'landscape' ? 'default' : 'outline'}
             size="sm"
-            className="h-9"
+            className="h-8 text-xs px-1.5 font-medium"
             onClick={() => setPaperSettings({ orientation: 'landscape' })}
           >
-            Landscape
+            Landscape (Horizontal)
           </Button>
         </div>
+      </div>
+
+      {/* Photo Layout Orientation — Upright vs Rotated 90° */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">Photo Layout Orientation</Label>
+          <span className="text-[10px] text-muted-foreground">
+            {rotation === 90 ? 'Rotated 90° (Sideways)' : 'Upright (0°)'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant={rotation !== 90 ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setRotation(0)}
+          >
+            Upright (0°)
+          </Button>
+          <Button
+            variant={rotation === 90 ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setRotation(90)}
+          >
+            Rotate 90° {paperSettings.paperId === '4x6' && paperSettings.orientation === 'portrait' ? '(8 Photos)' : ''}
+          </Button>
+        </div>
+        {paperSettings.paperId === '4x6' && paperSettings.orientation === 'portrait' && (
+          <p className="text-[10px] text-muted-foreground">
+            {rotation === 90
+              ? '✓ Fits studio standard 8 passport photos on vertical 4x6 sheet (2 cols × 4 rows)'
+              : 'Upright fits up to 6 passport photos on vertical 4x6 sheet (2 cols × 3 rows)'}
+          </p>
+        )}
       </div>
 
       <Separator />
@@ -192,10 +227,22 @@ export function PaperSelector() {
 
       <Separator />
 
-      {/* Margins */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium">Margins (mm)</Label>
-        <div className="grid grid-cols-2 gap-2">
+      {/* Margins — Pro Feature */}
+      <div className="space-y-2 relative">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">Margins (mm)</Label>
+          {!isPro && (
+            <button
+              type="button"
+              onClick={() => openUpgradeModal('Custom Paper Margins')}
+              className="flex items-center gap-1 text-[10px] font-bold text-[#C89B4A] hover:text-[#E5AD35] transition-colors cursor-pointer"
+            >
+              <Crown className="w-3 h-3" />
+              <span>PRO</span>
+            </button>
+          )}
+        </div>
+        <div className={`grid grid-cols-2 gap-2 ${!isPro ? 'opacity-50 pointer-events-none' : ''}`}>
           <div>
             <Label className="text-[10px] text-muted-foreground">Top</Label>
             <Input
@@ -243,10 +290,22 @@ export function PaperSelector() {
         </div>
       </div>
 
-      {/* Spacing */}
+      {/* Spacing — Pro Feature */}
       <div className="space-y-2">
-        <Label className="text-xs font-medium">Spacing (mm)</Label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">Spacing (mm)</Label>
+          {!isPro && (
+            <button
+              type="button"
+              onClick={() => openUpgradeModal('Custom Photo Spacing')}
+              className="flex items-center gap-1 text-[10px] font-bold text-[#C89B4A] hover:text-[#E5AD35] transition-colors cursor-pointer"
+            >
+              <Crown className="w-3 h-3" />
+              <span>PRO</span>
+            </button>
+          )}
+        </div>
+        <div className={`grid grid-cols-2 gap-2 ${!isPro ? 'opacity-50 pointer-events-none' : ''}`}>
           <div>
             <Label className="text-[10px] text-muted-foreground">Horizontal</Label>
             <Input
@@ -274,7 +333,7 @@ export function PaperSelector() {
 
       <Separator />
 
-      {/* Passport Photo Border & Frame */}
+      {/* Passport Photo Border & Frame — Pro Feature */}
       <div className="space-y-3 p-3 bg-muted/40 rounded-lg border border-border/70">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -284,10 +343,28 @@ export function PaperSelector() {
               <p className="text-[10px] text-muted-foreground mt-0.5">Passport cut guide & studio border</p>
             </div>
           </div>
-          <Switch
-            checked={photoBorder.enabled}
-            onCheckedChange={(checked) => setPhotoBorder({ enabled: checked })}
-          />
+          <div className="flex items-center gap-2">
+            {!isPro && (
+              <button
+                type="button"
+                onClick={() => openUpgradeModal('Photo Border Controls')}
+                className="flex items-center gap-1 text-[10px] font-bold text-[#C89B4A] hover:text-[#E5AD35] transition-colors cursor-pointer"
+              >
+                <Crown className="w-3 h-3" />
+                <span>PRO</span>
+              </button>
+            )}
+            <Switch
+              checked={photoBorder.enabled}
+              onCheckedChange={(checked) => {
+                if (!isPro) {
+                  openUpgradeModal('Photo Border Controls');
+                  return;
+                }
+                setPhotoBorder({ enabled: checked });
+              }}
+            />
+          </div>
         </div>
 
         {photoBorder.enabled && (
@@ -429,5 +506,6 @@ export function PaperSelector() {
         )}
       </div>
     </div>
+    </ScrollArea>
   );
 }

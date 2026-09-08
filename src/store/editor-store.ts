@@ -222,15 +222,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const tmpl = getPhotoTemplate(id);
       if (tmpl?.defaultPaperId === '4x6') {
         const isPhoto4x6 = tmpl.id === 'photo-4x6';
-        set({
+        set((state) => ({
           selectedTemplateId: id,
           selectedTemplateType: type,
           paperSettings: {
             ...getDefaultPaperSettings('4x6'),
-            orientation: isPhoto4x6 ? 'portrait' : 'landscape',
+            orientation: state.paperSettings?.orientation || (isPhoto4x6 ? 'portrait' : 'landscape'),
           },
           copies: tmpl.defaultCopies || (isPhoto4x6 ? 1 : 8),
-        });
+        }));
         return;
       }
     }

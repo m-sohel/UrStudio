@@ -40,6 +40,7 @@ export interface LayoutPosition {
   height: number;
   row: number;
   col: number;
+  rotation?: 0 | 90 | 180 | 270;
 }
 
 export interface LayoutResult {
@@ -121,7 +122,9 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
     // Studio-standard calibration for 4x6 inch paper (152.4 x 101.6 mm landscape) with standard ~35x45mm passport photos:
     // Automatically fit exactly 4 columns x 2 rows = 8 photos horizontally without clipping
     const is4x6Landscape = Math.abs(paperWidth - 152.4) < 1.0 && Math.abs(paperHeight - 101.6) < 1.0;
+    const is4x6Portrait = Math.abs(paperWidth - 101.6) < 1.0 && Math.abs(paperHeight - 152.4) < 1.0;
     const is35x45Passport = Math.abs(effectiveItemWidth - 35) < 1.5 && Math.abs(effectiveItemHeight - 45) < 1.5;
+    const is35x45RotatedPassport = Math.abs(effectiveItemWidth - 45) < 1.5 && Math.abs(effectiveItemHeight - 35) < 1.5;
 
     if (is4x6Landscape && is35x45Passport) {
       if (effHGap > 2) effHGap = 2;
@@ -133,6 +136,25 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
         effMarginRight = remainingX;
       }
       const requiredH = 2 * effectiveItemHeight + 1 * effVGap; // 92mm
+      if (paperHeight - effMarginTop - effMarginBottom < requiredH) {
+        const remainingY = Math.max(1, (paperHeight - requiredH) / 2);
+        effMarginTop = remainingY;
+        effMarginBottom = remainingY;
+      }
+    }
+
+    // Studio-standard calibration for 4x6 inch paper in PORTRAIT (101.6 x 152.4 mm vertical) with rotated 35x45mm passport photos:
+    // Automatically fit exactly 2 columns x 4 rows = 8 photos vertically without clipping
+    if (is4x6Portrait && is35x45RotatedPassport) {
+      if (effHGap > 2) effHGap = 2;
+      if (effVGap > 2) effVGap = 2;
+      const requiredW = 2 * effectiveItemWidth + 1 * effHGap; // 92mm
+      if (paperWidth - effMarginLeft - effMarginRight < requiredW) {
+        const remainingX = Math.max(1, (paperWidth - requiredW) / 2);
+        effMarginLeft = remainingX;
+        effMarginRight = remainingX;
+      }
+      const requiredH = 4 * effectiveItemHeight + 3 * effVGap; // 146mm
       if (paperHeight - effMarginTop - effMarginBottom < requiredH) {
         const remainingY = Math.max(1, (paperHeight - requiredH) / 2);
         effMarginTop = remainingY;
@@ -205,10 +227,15 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   ) + 1;
 
   const is4x6Landscape = Math.abs(paperWidth - 152.4) < 1.0 && Math.abs(paperHeight - 101.6) < 1.0;
+  const is4x6Portrait = Math.abs(paperWidth - 101.6) < 1.0 && Math.abs(paperHeight - 152.4) < 1.0;
   const is35x45Passport = Math.abs(effectiveItemWidth - 35) < 1.5 && Math.abs(effectiveItemHeight - 45) < 1.5;
+  const is35x45RotatedPassport = Math.abs(effectiveItemWidth - 45) < 1.5 && Math.abs(effectiveItemHeight - 35) < 1.5;
   if (is4x6Landscape && is35x45Passport) {
     columns = Math.max(4, columns);
     rows = Math.max(2, rows);
+  } else if (is4x6Portrait && is35x45RotatedPassport) {
+    columns = Math.max(2, columns);
+    rows = Math.max(4, rows);
   }
 
   // Calculate positions
@@ -234,6 +261,7 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
         height: effectiveItemHeight,
         row,
         col,
+        rotation: (rotation === 90 || rotation === 270 || isRotated) ? 90 : 0,
       });
       count++;
     }
@@ -317,99 +345,147 @@ export function calculateIDCardLayout(input: IDCardLayoutInput): IDCardLayoutRes
     copies,
   } = input;
 
-  if (arrangement === 'front-only' || arrangement === 'back-only') {
-    // Single side mode for PVC card printing
-    const layout = calculateLayout({
-      paperWidth,
-      paperHeight,
-      itemWidth: cardWidth,
-      itemHeight: cardHeight,
-      marginTop,
-      marginRight,
-      marginBottom,
-      marginLeft,
-      horizontalGap,
-      verticalGap,
-      maxCopies: copies,
-    });
+  const availableWidth = paperWidth - marginLeft - marginRight;
+  const availableHeight = paperHeight - marginTop - marginBottom;
 
-    return {
-      positions: layout.positions.map(pos => ({
-        front: pos,
-      })),
-      totalSets: layout.totalItems,
-      columns: layout.columns,
-      rows: layout.rows,
-    };
+  if (arrangement === 'front-only' || arrangement === 'back-only') {
+    const pairWidth = cardWidth;
+    const pairHeight = cardHeight;
+
+    if (pairWidth > availableWidth + 0.5 || pairHeight > availableHeight + 0.5) {
+      return { positions: [], totalSets: 0, columns: 0, rows: 0 };
+    }
+
+    const columns = Math.max(1, Math.floor((availableWidth - pairWidth + 0.05) / (pairWidth + horizontalGap)) + 1);
+    const rows = Math.max(1, Math.floor((availableHeight - pairHeight + 0.05) / (pairHeight + verticalGap)) + 1);
+    const totalPossible = columns * rows;
+    const totalSets = copies > 0 ? Math.min(copies, totalPossible) : totalPossible;
+
+    const usedWidth = columns * pairWidth + (columns - 1) * horizontalGap;
+    const usedHeight = rows * pairHeight + (rows - 1) * verticalGap;
+    const offsetX = marginLeft + Math.max(0, (availableWidth - usedWidth) / 2);
+    const offsetY = marginTop + Math.max(0, (availableHeight - usedHeight) / 2);
+
+    const positions: { front: LayoutPosition }[] = [];
+    let count = 0;
+    for (let r = 0; r < rows && count < totalSets; r++) {
+      for (let c = 0; c < columns && count < totalSets; c++) {
+        positions.push({
+          front: {
+            x: offsetX + c * (pairWidth + horizontalGap),
+            y: offsetY + r * (pairHeight + verticalGap),
+            width: cardWidth,
+            height: cardHeight,
+            row: r,
+            col: c,
+          },
+        });
+        count++;
+      }
+    }
+
+    return { positions, totalSets, columns, rows };
   }
 
   if (arrangement === 'stacked') {
     // Front on top, back below
+    const pairWidth = cardWidth;
     const pairHeight = cardHeight * 2 + frontBackGap;
-    const layout = calculateLayout({
-      paperWidth,
-      paperHeight,
-      itemWidth: cardWidth,
-      itemHeight: pairHeight,
-      marginTop,
-      marginRight,
-      marginBottom,
-      marginLeft,
-      horizontalGap,
-      verticalGap,
-      maxCopies: copies,
-    });
 
-    return {
-      positions: layout.positions.map(pos => ({
-        front: {
-          ...pos,
-          height: cardHeight,
-        },
-        back: {
-          ...pos,
-          y: pos.y + cardHeight + frontBackGap,
-          height: cardHeight,
-        },
-      })),
-      totalSets: layout.totalItems,
-      columns: layout.columns,
-      rows: layout.rows,
-    };
+    // Must fit directly within paper area — prevent leaking off sheet!
+    if (pairWidth > availableWidth + 0.5 || pairHeight > availableHeight + 0.5) {
+      return { positions: [], totalSets: 0, columns: 0, rows: 0 };
+    }
+
+    const columns = Math.max(1, Math.floor((availableWidth - pairWidth + 0.05) / (pairWidth + horizontalGap)) + 1);
+    const rows = Math.max(1, Math.floor((availableHeight - pairHeight + 0.05) / (pairHeight + verticalGap)) + 1);
+    const totalPossible = columns * rows;
+    const totalSets = copies > 0 ? Math.min(copies, totalPossible) : totalPossible;
+
+    const usedWidth = columns * pairWidth + (columns - 1) * horizontalGap;
+    const usedHeight = rows * pairHeight + (rows - 1) * verticalGap;
+    const offsetX = marginLeft + Math.max(0, (availableWidth - usedWidth) / 2);
+    const offsetY = marginTop + Math.max(0, (availableHeight - usedHeight) / 2);
+
+    const positions: { front: LayoutPosition; back: LayoutPosition }[] = [];
+    let count = 0;
+    for (let r = 0; r < rows && count < totalSets; r++) {
+      for (let c = 0; c < columns && count < totalSets; c++) {
+        const setX = offsetX + c * (pairWidth + horizontalGap);
+        const setY = offsetY + r * (pairHeight + verticalGap);
+        positions.push({
+          front: {
+            x: setX,
+            y: setY,
+            width: cardWidth,
+            height: cardHeight,
+            row: r,
+            col: c,
+          },
+          back: {
+            x: setX,
+            y: setY + cardHeight + frontBackGap,
+            width: cardWidth,
+            height: cardHeight,
+            row: r,
+            col: c,
+          },
+        });
+        count++;
+      }
+    }
+
+    return { positions, totalSets, columns, rows };
   }
 
-  // side-by-side
+  // side-by-side: Front on left, back on right
   const pairWidth = cardWidth * 2 + frontBackGap;
-  const layout = calculateLayout({
-    paperWidth,
-    paperHeight,
-    itemWidth: pairWidth,
-    itemHeight: cardHeight,
-    marginTop,
-    marginRight,
-    marginBottom,
-    marginLeft,
-    horizontalGap,
-    verticalGap,
-    maxCopies: copies,
-  });
+  const pairHeight = cardHeight;
 
-  return {
-    positions: layout.positions.map(pos => ({
-      front: {
-        ...pos,
-        width: cardWidth,
-      },
-      back: {
-        ...pos,
-        x: pos.x + cardWidth + frontBackGap,
-        width: cardWidth,
-      },
-    })),
-    totalSets: layout.totalItems,
-    columns: layout.columns,
-    rows: layout.rows,
-  };
+  // Must fit directly within paper area — prevent leaking off sheet!
+  if (pairWidth > availableWidth + 0.5 || pairHeight > availableHeight + 0.5) {
+    return { positions: [], totalSets: 0, columns: 0, rows: 0 };
+  }
+
+  const columns = Math.max(1, Math.floor((availableWidth - pairWidth + 0.05) / (pairWidth + horizontalGap)) + 1);
+  const rows = Math.max(1, Math.floor((availableHeight - pairHeight + 0.05) / (pairHeight + verticalGap)) + 1);
+  const totalPossible = columns * rows;
+  const totalSets = copies > 0 ? Math.min(copies, totalPossible) : totalPossible;
+
+  const usedWidth = columns * pairWidth + (columns - 1) * horizontalGap;
+  const usedHeight = rows * pairHeight + (rows - 1) * verticalGap;
+  const offsetX = marginLeft + Math.max(0, (availableWidth - usedWidth) / 2);
+  const offsetY = marginTop + Math.max(0, (availableHeight - usedHeight) / 2);
+
+  const positions: { front: LayoutPosition; back: LayoutPosition }[] = [];
+  let count = 0;
+  for (let r = 0; r < rows && count < totalSets; r++) {
+    for (let c = 0; c < columns && count < totalSets; c++) {
+      const setX = offsetX + c * (pairWidth + horizontalGap);
+      const setY = offsetY + r * (pairHeight + verticalGap);
+      positions.push({
+        front: {
+          x: setX,
+          y: setY,
+          width: cardWidth,
+          height: cardHeight,
+          row: r,
+          col: c,
+        },
+        back: {
+          x: setX + cardWidth + frontBackGap,
+          y: setY,
+          width: cardWidth,
+          height: cardHeight,
+          row: r,
+          col: c,
+        },
+      });
+      count++;
+    }
+  }
+
+  return { positions, totalSets, columns, rows };
 }
 
 // ============================================================

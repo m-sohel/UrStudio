@@ -178,11 +178,11 @@ export default function Dashboard() {
                       Upgrade to UrStudio Pro for Print Shops & CSC Centers
                     </h3>
                     <Badge className="bg-[#C89B4A] dark:bg-[#E5AD35] text-[#2A2013] border-none text-[11px] font-bold px-2 py-0.5 shadow-sm">
-                      Save 80% with Shop Pass
+                      From ₹29/mo • Save 60% with Annual Pass
                     </Badge>
                   </div>
                   <p className="text-xs text-[#FAF8F5]/80 mt-1 max-w-2xl leading-relaxed">
-                    Print multi-customer mix & match sheets, remove watermarks, generate 300 DPI Ultra-HD PDFs, and stamp your custom shop branding & phone on every job.
+                    Direct print, watermark-free 300 DPI PDFs, official &lt;20/50KB exam form compression, custom border &amp; paper controls, and custom shop branding.
                   </p>
                 </div>
               </div>
@@ -375,8 +375,16 @@ export default function Dashboard() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-border mt-16 py-6 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-2">
+        <footer className="border-t border-border mt-16 py-6 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-3">
           <span>© {new Date().getFullYear()} UrStudio</span>
+          <span className="hidden sm:inline">•</span>
+          <Link href="/terms" className="text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors">
+            Terms of Service
+          </Link>
+          <span className="hidden sm:inline">•</span>
+          <Link href="/privacy" className="text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors">
+            Privacy Policy
+          </Link>
           <span className="hidden sm:inline">•</span>
           <span>
             Crafted by{' '}

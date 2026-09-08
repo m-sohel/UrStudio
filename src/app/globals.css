@@ -445,17 +445,41 @@
   background: oklch(0.5 0 0);
 }
 
-/* Cropper.js overrides for dark theme */
+/* Cropper.js overrides for dark and light theme */
 .cropper-view-box {
+  outline: 2px solid oklch(0.7 0.15 250) !important;
   outline-color: oklch(0.7 0.15 250) !important;
-}
-
-.cropper-point {
-  background-color: oklch(0.7 0.15 250) !important;
 }
 
 .cropper-line {
   background-color: oklch(0.7 0.15 250) !important;
+  opacity: 0.65 !important;
+}
+
+.cropper-point {
+  background-color: oklch(0.7 0.15 250) !important;
+  width: 9px !important;
+  height: 9px !important;
+  opacity: 0.95 !important;
+  border-radius: 2px !important;
+  border: 1.5px solid #ffffff !important;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Corner handles slightly larger for easy gripping */
+.cropper-point.point-se,
+.cropper-point.point-sw,
+.cropper-point.point-nw,
+.cropper-point.point-ne {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 3px !important;
+}
+
+.cropper-point:hover {
+  background-color: #38bdf8 !important;
+  transform: scale(1.2);
+  transition: transform 0.15s ease;
 }
 
 /* 3D Flip Effect for Action Icons */

@@ -150,6 +150,24 @@ function EditorContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, setStep, step, effectiveMode]);
 
+  // Prevent SSR hydration mismatch before client state is mounted
+  if (!mounted) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-background text-sm text-muted-foreground gap-3">
+        <div className="w-10 h-10 rounded-xl bg-card border-2 border-border/80 flex items-center justify-center p-1.5 overflow-hidden animate-pulse shadow-sm">
+          <NextImage
+            src="/favicon.png"
+            alt="UrStudio Logo"
+            width={28}
+            height={28}
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <span className="font-semibold text-xs text-muted-foreground">Loading Studio...</span>
+      </div>
+    );
+  }
+
   // Full-screen print preview mode (Photo Mode)
   if (step === 'preview' && effectiveMode === 'photo') {
     return (
@@ -358,22 +376,22 @@ function EditorContent() {
           /* Standard Photo Printing Mode (Upload -> Crop -> Layout -> Preview) */
           <div className="flex-1 flex overflow-hidden">
             {/* Left Sidebar — Templates & Layout */}
-            <aside className="w-64 border-r border-border flex flex-col bg-card overflow-hidden flex-shrink-0">
+            <aside className="w-72 border-r border-border flex flex-col bg-card overflow-hidden flex-shrink-0">
               {step === 'layout' ? (
                 <>
-                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50 shrink-0">
                     Paper & Layout
                   </div>
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden">
                     <PaperSelector />
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="p-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50 shrink-0">
                     Select Template
                   </div>
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden">
                     <TemplateSelector />
                   </div>
                 </>

@@ -582,6 +582,32 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </main>
+
+        {/* Footer */}
+        <footer className="border-t border-border mt-12 py-6 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-3">
+          <span>© {new Date().getFullYear()} UrStudio</span>
+          <span className="hidden sm:inline">•</span>
+          <Link href="/terms" className="text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors">
+            Terms of Service
+          </Link>
+          <span className="hidden sm:inline">•</span>
+          <Link href="/privacy" className="text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors">
+            Privacy Policy
+          </Link>
+          <span className="hidden sm:inline">•</span>
+          <span>
+            Crafted by{' '}
+            <a
+              href="https://github.com/m-sohel"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:text-primary font-medium underline underline-offset-4 transition-colors"
+            >
+              m-sohel
+            </a>
+          </span>
+        </footer>
+
         <UpgradeModal />
       </div>
     </TooltipProvider>

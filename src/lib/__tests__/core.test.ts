@@ -315,6 +315,72 @@ test('Layout Engine: ID Card PVC single-side layout', () => {
   assert.equal(pvc.positions[0].front.height, 53.98);
 });
 
+test('Layout Engine: ID Card on 4x6 inch paper orientation fit & leak prevention', () => {
+  // Case 1: 4x6 in Portrait (101.6 x 152.4mm) with Horizontal stacked cards (85.6 x 53.98mm)
+  // Pair height is 53.98*2 + 5 = 112.96mm <= 152.4mm -> FITS CLEANLY!
+  const portraitStacked = calculateIDCardLayout({
+    paperWidth: 101.6,
+    paperHeight: 152.4,
+    cardWidth: 85.6,
+    cardHeight: 53.98,
+    marginTop: 5,
+    marginRight: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    horizontalGap: 5,
+    verticalGap: 5,
+    frontBackGap: 5,
+    arrangement: 'stacked',
+    copies: 1,
+  });
+
+  assert.equal(portraitStacked.totalSets, 1, 'Horizontal stacked cards must fit on 4x6 Portrait paper');
+  assert.ok(portraitStacked.positions[0].back!.y + portraitStacked.positions[0].back!.height <= 152.4, 'Back card does not overflow 152.4mm sheet');
+
+  // Case 2: 4x6 in Landscape (152.4 x 101.6mm) with Vertical side-by-side cards (53.98 x 85.6mm)
+  // Pair width is 53.98*2 + 5 = 112.96mm <= 152.4mm, height is 85.6mm <= 101.6mm -> FITS CLEANLY!
+  const landscapeVerticalSideBySide = calculateIDCardLayout({
+    paperWidth: 152.4,
+    paperHeight: 101.6,
+    cardWidth: 53.98,
+    cardHeight: 85.6,
+    marginTop: 5,
+    marginRight: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    horizontalGap: 5,
+    verticalGap: 5,
+    frontBackGap: 5,
+    arrangement: 'side-by-side',
+    copies: 1,
+  });
+
+  assert.equal(landscapeVerticalSideBySide.totalSets, 1, 'Vertical side-by-side cards must fit on 4x6 Landscape paper');
+  assert.ok(landscapeVerticalSideBySide.positions[0].back!.x + landscapeVerticalSideBySide.positions[0].back!.width <= 152.4, 'Cards do not overflow width');
+  assert.ok(landscapeVerticalSideBySide.positions[0].front.y + landscapeVerticalSideBySide.positions[0].front.height <= 101.6, 'Cards do not overflow height');
+
+  // Case 3: 4x6 in Landscape (152.4 x 101.6mm) with Horizontal stacked cards (85.6 x 53.98mm)
+  // Pair height is 112.96mm > 101.6mm paper height -> MUST RETURN 0 TO PREVENT LEAKING OFF SHEET!
+  const landscapeStackedLeakPrevention = calculateIDCardLayout({
+    paperWidth: 152.4,
+    paperHeight: 101.6,
+    cardWidth: 85.6,
+    cardHeight: 53.98,
+    marginTop: 5,
+    marginRight: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    horizontalGap: 5,
+    verticalGap: 5,
+    frontBackGap: 5,
+    arrangement: 'stacked',
+    copies: 1,
+  });
+
+  assert.equal(landscapeStackedLeakPrevention.totalSets, 0, 'Must prevent cards leaking when pair height exceeds sheet height');
+  assert.equal(landscapeStackedLeakPrevention.positions.length, 0);
+});
+
 // ============================================================
 // 3. Templates System Tests
 // ============================================================

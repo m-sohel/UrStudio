@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   FileCheck2, Download, Copy, Check, Upload, Sparkles, AlertCircle,
   FileText, ShieldCheck, HelpCircle, RefreshCw, Sliders, Image as ImageIcon,
-  PenTool, Fingerprint, Search, Info, ArrowRight, ExternalLink
+  PenTool, Fingerprint, Search, Info, ArrowRight, ExternalLink, Crown, Lock
 } from 'lucide-react';
+import { useLicenseStore } from '@/store/license-store';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
@@ -69,11 +70,18 @@ export function DigitalFormExportDialog({
     return EXAM_FORM_PRESETS.find(p => p.id === selectedPresetId) || EXAM_FORM_PRESETS[0];
   }, [selectedPresetId]);
 
+  // License state for Pro gating
+  const { isPro, openUpgradeModal } = useLicenseStore();
+
   // Compression configuration state
   const [targetMaxKb, setTargetMaxKb] = useState<number>(50);
   const [targetMinKb, setTargetMinKb] = useState<number>(20);
   const [targetWidth, setTargetWidth] = useState<number>(350);
   const [targetHeight, setTargetHeight] = useState<number>(450);
+
+  // Tiered compression limits: Free tier is clamped to >=100 KB
+  const effectiveTargetMaxKb = isPro ? targetMaxKb : Math.max(100, targetMaxKb);
+  const effectiveTargetMinKb = isPro ? targetMinKb : Math.max(80, Math.min(effectiveTargetMaxKb - 10, targetMinKb));
 
   // Signature clean filter state
   const [cleanSignature, setCleanSignature] = useState<boolean>(false);
@@ -138,8 +146,8 @@ export function DigitalFormExportDialog({
       ctx.drawImage(img, 0, 0);
 
       const result = await compressCanvasToTargetKb(srcCanvas, {
-        targetMaxKb,
-        targetMinKb,
+        targetMaxKb: effectiveTargetMaxKb,
+        targetMinKb: effectiveTargetMinKb,
         width: targetWidth,
         height: targetHeight,
         cleanSignature,
@@ -157,8 +165,8 @@ export function DigitalFormExportDialog({
     }
   }, [
     activeImage,
-    targetMaxKb,
-    targetMinKb,
+    effectiveTargetMaxKb,
+    effectiveTargetMinKb,
     targetWidth,
     targetHeight,
     cleanSignature,
@@ -398,6 +406,7 @@ export function DigitalFormExportDialog({
                 {filteredPresets.map((preset) => {
                   const isSelected = preset.id === selectedPresetId;
                   const isSign = preset.type === 'signature' || preset.type === 'thumb';
+                  const isSub100 = preset.targetMaxKb < 100;
                   return (
                     <button
                       key={preset.id}
@@ -413,20 +422,28 @@ export function DigitalFormExportDialog({
                         <span className={`text-xs font-semibold line-clamp-1 ${isSelected ? 'text-primary' : 'text-foreground'}`}>
                           {preset.name}
                         </span>
-                        <Badge
-                          variant="secondary"
-                          className={`text-[9px] px-1.5 py-0 shrink-0 ${
-                            isSign ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' : 'bg-primary/15 text-primary'
-                          }`}
-                        >
-                          {preset.badge || `${preset.targetMinKb}–${preset.targetMaxKb} KB`}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isSub100 && !isPro && (
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 border-[#C89B4A]/50 text-[#C89B4A] bg-[#C89B4A]/10 font-bold gap-0.5">
+                              <Crown className="w-2.5 h-2.5" />
+                              PRO
+                            </Badge>
+                          )}
+                          <Badge
+                            variant="secondary"
+                            className={`text-[9px] px-1.5 py-0 shrink-0 ${
+                              isSign ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' : 'bg-primary/15 text-primary'
+                            }`}
+                          >
+                            {preset.badge || `${preset.targetMinKb}–${preset.targetMaxKb} KB`}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-0.5">
                         <span className="font-mono">{preset.displayDimensions}</span>
-                        <span className="text-[10px] font-medium text-emerald-500">
-                          {preset.targetMinKb}–{preset.targetMaxKb} KB
+                        <span className={`text-[10px] font-medium ${isSub100 && !isPro ? 'text-amber-500' : 'text-emerald-500'}`}>
+                          {isSub100 && !isPro ? `Free: ≥100 KB` : `${preset.targetMinKb}–${preset.targetMaxKb} KB`}
                         </span>
                       </div>
                     </button>
@@ -464,15 +481,39 @@ export function DigitalFormExportDialog({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground text-[11px]">Strict Upper Limit (Max KB)</span>
-                  <span className="font-mono font-bold text-primary">{targetMaxKb} KB</span>
+                  <span className="font-mono font-bold text-primary">
+                    {effectiveTargetMaxKb} KB {!isPro && targetMaxKb < 100 && <span className="text-[10px] text-amber-500 font-normal">(Free min: 100KB)</span>}
+                  </span>
                 </div>
                 <Slider
-                  min={10}
+                  min={isPro ? 10 : 100}
                   max={300}
                   step={1}
-                  value={targetMaxKb}
-                  onValueChange={(v) => setTargetMaxKb(typeof v === 'number' ? v : Array.isArray(v) ? v[0] : 50)}
+                  value={effectiveTargetMaxKb}
+                  onValueChange={(v) => {
+                    const val = typeof v === 'number' ? v : Array.isArray(v) ? v[0] : 50;
+                    if (!isPro && val < 100) {
+                      openUpgradeModal('Exam Form Compression (<100KB)');
+                      return;
+                    }
+                    setTargetMaxKb(val);
+                  }}
                 />
+                {!isPro && (
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                    <span className="flex items-center gap-1 text-[#C89B4A] font-medium">
+                      <Lock className="w-3 h-3" />
+                      &lt;100KB (20KB–50KB) requires Pro
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openUpgradeModal('Official Exam Form Compression (<50KB)')}
+                      className="text-primary hover:underline font-semibold cursor-pointer"
+                    >
+                      Unlock for ₹29/mo →
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Pixel Dimensions Inputs */}
@@ -617,37 +658,57 @@ export function DigitalFormExportDialog({
               {/* Real-time Compliance Result Card */}
               {compressResult && (
                 <div className={`p-3 rounded-lg border transition-all ${
-                  compressResult.isCompliant
+                  !isPro && activePreset.targetMaxKb < 100
+                    ? 'bg-amber-500/10 border-amber-500/30'
+                    : compressResult.isCompliant
                     ? 'bg-emerald-500/10 border-emerald-500/30'
                     : 'bg-amber-500/10 border-amber-500/30'
                 }`}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-medium text-foreground">File Size Verification:</span>
                     <span className={`text-sm font-bold font-mono ${
-                      compressResult.isCompliant ? 'text-emerald-500' : 'text-amber-500'
+                      !isPro && activePreset.targetMaxKb < 100
+                        ? 'text-amber-500'
+                        : compressResult.isCompliant ? 'text-emerald-500' : 'text-amber-500'
                     }`}>
                       {compressResult.sizeKb} KB
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs">
-                    {compressResult.isCompliant ? (
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                    )}
-                    <span className={`font-medium ${compressResult.isCompliant ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {compressResult.isCompliant
-                        ? `✔ 100% Compliant for ${activePreset.name}`
-                        : `Target range is ${targetMinKb}–${targetMaxKb} KB`
-                      }
-                    </span>
-                  </div>
+                  {!isPro && activePreset.targetMaxKb < 100 ? (
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center gap-1.5 text-amber-500 font-medium">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Official portal requires {activePreset.targetMinKb}–{activePreset.targetMaxKb} KB</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        Free tier compresses to ≥100 KB ({compressResult.sizeKb} KB). Official exam portals reject files &gt;{activePreset.targetMaxKb} KB.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-xs">
+                      {compressResult.isCompliant ? (
+                        <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                      )}
+                      <span className={`font-medium ${compressResult.isCompliant ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {compressResult.isCompliant
+                          ? `✔ 100% Compliant for ${activePreset.name}`
+                          : `Target range is ${targetMinKb}–${targetMaxKb} KB`
+                        }
+                      </span>
+                    </div>
+                  )}
 
                   <div className="mt-2 text-[11px] text-muted-foreground space-y-0.5 border-t border-border/40 pt-1.5">
                     <div className="flex justify-between">
                       <span>Target Band:</span>
-                      <span className="font-mono text-foreground">{targetMinKb} KB – {targetMaxKb} KB</span>
+                      <span className="font-mono text-foreground">
+                        {!isPro && activePreset.targetMaxKb < 100
+                          ? `Free: ≥100 KB (Pro: ${activePreset.targetMinKb}–${activePreset.targetMaxKb} KB)`
+                          : `${effectiveTargetMinKb} KB – ${effectiveTargetMaxKb} KB`}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>JPEG Quality:</span>
@@ -667,15 +728,38 @@ export function DigitalFormExportDialog({
 
             {/* Bottom Actions */}
             <div className="space-y-2 pt-2 border-t border-border">
-              <Button
-                variant="3d-terracotta"
-                onClick={handleDownload}
-                disabled={!compressResult || isProcessing}
-                className="w-full text-xs h-9 gap-2 font-bold cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Form-Ready JPG ({compressResult?.sizeKb || targetMaxKb} KB)</span>
-              </Button>
+              {!isPro && activePreset.targetMaxKb < 100 ? (
+                <>
+                  <Button
+                    variant="3d-gold"
+                    onClick={() => openUpgradeModal(`Official ${activePreset.name} (<${activePreset.targetMaxKb}KB) Export`)}
+                    className="w-full text-xs h-9 gap-2 font-bold cursor-pointer"
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span>Unlock Official {activePreset.targetMinKb}–{activePreset.targetMaxKb} KB (Pro)</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={handleDownload}
+                    disabled={!compressResult || isProcessing}
+                    className="w-full text-xs h-8 gap-2 text-muted-foreground cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Free Version ({compressResult?.sizeKb || 100} KB)</span>
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="3d-terracotta"
+                  onClick={handleDownload}
+                  disabled={!compressResult || isProcessing}
+                  className="w-full text-xs h-9 gap-2 font-bold cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Form-Ready JPG ({compressResult?.sizeKb || targetMaxKb} KB)</span>
+                </Button>
+              )}
 
               <div className="flex items-center gap-2">
                 <Button

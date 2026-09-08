@@ -44,6 +44,8 @@ export interface IDCardSheetPDFConfig extends BasePDFConfig {
   frontImageUrl: string;
   backImageUrl?: string;
   templateName?: string;
+  frontRotation?: number;
+  backRotation?: number;
 }
 
 export interface PVCCardPDFConfig {
@@ -116,6 +118,42 @@ export async function resolveImageDataUrl(url: string): Promise<string> {
         .catch(reject);
     };
     img.src = url;
+  });
+}
+
+/**
+ * Rotate an image data URL by specified angle (e.g. 90 degrees)
+ */
+export async function rotateImageDataUrl(dataUrl: string, angle: number): Promise<string> {
+  if (typeof window === 'undefined' || !angle) return dataUrl;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        if (angle === 90 || angle === 270) {
+          canvas.width = img.naturalHeight || img.height;
+          canvas.height = img.naturalWidth || img.width;
+        } else {
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((angle * Math.PI) / 180);
+        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        resolve(canvas.toDataURL('image/jpeg', 0.98));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
   });
 }
 
@@ -202,8 +240,9 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
     const renderW = cellW + bleedMm * 2;
     const renderH = cellH + bleedMm * 2;
 
-    // Render photo
-    doc.addImage(cellImg, 'JPEG', renderX, renderY, renderW, renderH, undefined, 'FAST');
+    // Render photo (rotated if slot is calibrated sideways for 8-up 4x6 sheet)
+    const finalImg = pos.rotation ? await rotateImageDataUrl(cellImg, pos.rotation) : cellImg;
+    doc.addImage(finalImg, 'JPEG', renderX, renderY, renderW, renderH, undefined, 'FAST');
 
     // Photo border (Passport photo cutting/framing line)
     if (config.photoBorder?.enabled && config.photoBorder.style !== 'none') {
@@ -286,6 +325,8 @@ export async function exportIDCardSheetToPDF(config: IDCardSheetPDFConfig): Prom
     showCropMarks = true,
     filename,
     templateName = 'ID_Card',
+    frontRotation = 0,
+    backRotation = 0,
   } = config;
 
   const isLandscape = orientation === 'landscape';
@@ -306,8 +347,10 @@ export async function exportIDCardSheetToPDF(config: IDCardSheetPDFConfig): Prom
     creator: 'UrStudio',
   });
 
-  const resolvedFront = await resolveImageDataUrl(frontImageUrl);
-  const resolvedBack = backImageUrl ? await resolveImageDataUrl(backImageUrl) : null;
+  const rawFront = await resolveImageDataUrl(frontImageUrl);
+  const rawBack = backImageUrl ? await resolveImageDataUrl(backImageUrl) : null;
+  const resolvedFront = frontRotation ? await rotateImageDataUrl(rawFront, frontRotation) : rawFront;
+  const resolvedBack = (rawBack && backRotation) ? await rotateImageDataUrl(rawBack, backRotation) : rawBack;
 
   for (const pos of positions) {
     // 1. Front Card
@@ -390,8 +433,11 @@ export async function exportPVCCardToPDF(config: PVCCardPDFConfig): Promise<jsPD
     filename,
   } = config;
 
+  const isVertical = cardHeight > cardWidth;
+  const orientation = isVertical ? 'portrait' : 'landscape';
+
   const doc = new jsPDF({
-    orientation: 'landscape',
+    orientation,
     unit: 'mm',
     format: [cardWidth, cardHeight],
     compress: true,
@@ -410,7 +456,7 @@ export async function exportPVCCardToPDF(config: PVCCardPDFConfig): Promise<jsPD
   // If back image exists, add as page 2
   if (backImageUrl) {
     const resolvedBack = await resolveImageDataUrl(backImageUrl);
-    doc.addPage([cardWidth, cardHeight], 'landscape');
+    doc.addPage([cardWidth, cardHeight], orientation);
     doc.addImage(resolvedBack, 'JPEG', 0, 0, cardWidth, cardHeight, undefined, 'FAST');
   }
 

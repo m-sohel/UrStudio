@@ -241,11 +241,20 @@ export function LayoutPreview() {
               title={mixMatchMode ? `Slot ${i + 1}: ${slot.imageName} (Click to swap customer)` : `Copy ${i + 1}`}
             >
               {slot.imageUrl ? (
-                <div className="w-full h-full relative">
+                <div className="w-full h-full relative flex items-center justify-center overflow-hidden">
                   <img
                     src={slot.imageUrl}
                     alt={`Copy ${i + 1}`}
-                    className="w-full h-full object-cover"
+                    className="object-cover"
+                    style={slot.position.rotation === 90 ? {
+                      width: `${slot.position.height * scale}px`,
+                      height: `${slot.position.width * scale}px`,
+                      transform: 'rotate(90deg)',
+                      transformOrigin: 'center center',
+                    } : {
+                      width: '100%',
+                      height: '100%',
+                    }}
                     draggable={false}
                   />
                   {mixMatchMode && (

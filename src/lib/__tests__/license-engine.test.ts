@@ -37,11 +37,14 @@ test('License Engine: built-in demo evaluation key validates offline', () => {
   assert.ok(res.expiresAt && res.expiresAt > Date.now());
 });
 
-test('License Engine: built-in lifetime VIP key validates offline', () => {
-  const res = verifyOfflineLicenseKey('URSTUDIO-LIFETIME-VIP');
-  assert.equal(res.valid, true);
-  assert.equal(res.tier, 'lifetime');
-  assert.equal(res.expiresAt, null);
+test('License Engine: generates and validates Monthly Shop Pass key deterministically', () => {
+  const key = generateOfflineLicenseKey('monthly', { daysValid: 30, seed: 'MNTH01' });
+  assert.ok(key.startsWith('URSTUDIO-MNTH-'));
+
+  const verification = verifyOfflineLicenseKey(key);
+  assert.equal(verification.valid, true);
+  assert.equal(verification.tier, 'monthly');
+  assert.ok(verification.expiresAt && verification.expiresAt > Date.now());
 });
 
 test('License Engine: generates and validates Annual Shop Pass key deterministically', () => {
@@ -52,16 +55,6 @@ test('License Engine: generates and validates Annual Shop Pass key deterministic
   assert.equal(verification.valid, true);
   assert.equal(verification.tier, 'annual');
   assert.ok(verification.expiresAt && verification.expiresAt > Date.now());
-});
-
-test('License Engine: generates and validates Lifetime Studio Pass key', () => {
-  const key = generateOfflineLicenseKey('lifetime', { seed: 'VIP999' });
-  assert.ok(key.startsWith('URSTUDIO-LIFE-LIFETIME-'));
-
-  const verification = verifyOfflineLicenseKey(key);
-  assert.equal(verification.valid, true);
-  assert.equal(verification.tier, 'lifetime');
-  assert.equal(verification.expiresAt, null);
 });
 
 test('License Engine: generates and validates Single-Export Pass key', () => {
@@ -166,3 +159,47 @@ test('License Store: offline activation, consumption, and branding state transit
   // Consume 3rd when empty
   assert.equal(store.consumeSinglePass(), false);
 });
+
+test('License Store: monthly pass activation and expiration logic', () => {
+  const store = useLicenseStore.getState();
+  store.deactivateLicense();
+
+  const monthlyKey = generateOfflineLicenseKey('monthly', { daysValid: 30, seed: 'MSTORE' });
+  const res = store.activateLicense(monthlyKey);
+  assert.equal(res.success, true);
+  assert.equal(useLicenseStore.getState().isPro, true);
+  assert.equal(useLicenseStore.getState().tier, 'monthly');
+  assert.ok(useLicenseStore.getState().expiresAt);
+  store.deactivateLicense();
+});
+
+test('License Store: background replacement allows 2 free per session then gates', () => {
+  const store = useLicenseStore.getState();
+  store.deactivateLicense();
+
+  // Reset bgReplacementsUsed to 0
+  useLicenseStore.setState({ bgReplacementsUsed: 0 });
+
+  // Free user start: 2 remaining
+  assert.equal(store.canUseBgReplacement(), true);
+
+  // Use 1
+  store.incrementBgReplacement();
+  assert.equal(useLicenseStore.getState().bgReplacementsUsed, 1);
+  assert.equal(store.canUseBgReplacement(), true);
+
+  // Use 2
+  store.incrementBgReplacement();
+  assert.equal(useLicenseStore.getState().bgReplacementsUsed, 2);
+  // Free tier now locked
+  assert.equal(store.canUseBgReplacement(), false);
+
+  // Once activated as Pro, unlimited BG replacements allowed
+  const monthlyKey = generateOfflineLicenseKey('monthly', { daysValid: 30, seed: 'BGPRO1' });
+  store.activateLicense(monthlyKey);
+  assert.equal(useLicenseStore.getState().isPro, true);
+  assert.equal(store.canUseBgReplacement(), true);
+
+  store.deactivateLicense();
+});
+

@@ -36,7 +36,7 @@ import { openRazorpayCheckout } from '@/lib/razorpay';
 import Link from 'next/link';
 
 interface SaaSPlan {
-  id: 'annual' | 'lifetime' | 'single_pass';
+  id: 'annual' | 'monthly' | 'single_pass';
   name: string;
   badge?: string;
   isPopular?: boolean;
@@ -51,45 +51,50 @@ interface SaaSPlan {
 const SAAS_PLANS: SaaSPlan[] = [
   {
     id: 'annual',
-    name: 'Shop Pass',
-    badge: 'Recommended',
+    name: 'Annual Shop Pass',
+    badge: 'Best Value',
     isPopular: true,
-    price: 199,
+    price: 149,
     periodText: '/ year',
-    subtext: '₹16/month • Billed annually',
-    description: 'The standard choice for cybercafés, CSC centers & print shops.',
-    ctaText: 'Upgrade to Shop Pass',
+    subtext: '₹12/month • Save 60% vs Monthly',
+    description: 'The smart choice for studios, CSC centers & print shops.',
+    ctaText: 'Get Annual Pass',
     features: [
       'Multi-Customer Mix & Match sheets (save photo paper)',
       'Custom Shop Branding on print footers',
       'Unlimited 300 DPI Ultra-HD PDF sheet exports',
       'Govt Form Exporter (<20KB / <50KB compression)',
+      'Photo Border Controls (color, thickness, style)',
+      'Advanced Paper Settings (margins, gaps, orientation)',
+      'Custom Photo Templates (any dimensions)',
+      'Unlimited Background Replacements',
       '100% Offline-enabled — zero internet needed',
     ],
   },
   {
-    id: 'lifetime',
-    name: 'Lifetime Studio',
-    badge: 'Best Value',
-    price: 499,
-    periodText: 'one-time',
-    subtext: 'Pay once, own forever',
-    description: 'Permanent commercial license for high-volume studios.',
-    ctaText: 'Get Lifetime Access',
+    id: 'monthly',
+    name: 'Monthly Shop Pass',
+    badge: 'Try Pro',
+    price: 29,
+    periodText: '/ month',
+    subtext: 'Cancel anytime',
+    description: 'Try Pro risk-free for one month.',
+    ctaText: 'Start Monthly',
     features: [
-      'Everything in Shop Pass, Forever',
-      'No annual renewals or recurring charges',
-      'Permanent VIP offline cryptographic license',
-      'All upcoming exam & card preset updates',
+      'All Pro features unlocked for 30 days',
+      'Multi-Customer Mix & Match sheets',
+      'Watermark-free 300 DPI PDF exports',
+      'Shop Branding & Custom Templates',
+      'Upgrade to Annual anytime & save 60%',
     ],
   },
   {
     id: 'single_pass',
     name: 'Per-Download Pass',
-    price: 29,
+    price: 19,
     periodText: 'one-time',
     subtext: '1 Watermark-free job',
-    description: 'For walk-in retail users wanting a single clean print.',
+    description: 'For walk-in customers wanting a single clean print.',
     ctaText: 'Get 1-Time Pass',
     features: [
       '1 Watermark-Free Sheet Export',
@@ -349,10 +354,10 @@ export function UpgradeModal() {
 
               {/* 3 SaaS Pricing Cards (3D Tactile Layout) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {SAAS_PLANS.map((plan) => {
+               {SAAS_PLANS.map((plan) => {
                   const isLoading = loadingPlanId === plan.id;
                   const isShopPass = plan.id === 'annual';
-                  const isLifetime = plan.id === 'lifetime';
+                  const isMonthly = plan.id === 'monthly';
 
                   return (
                     <div
@@ -361,7 +366,7 @@ export function UpgradeModal() {
                         relative rounded-2xl p-5 flex flex-col justify-between transition-all
                         ${isShopPass
                           ? 'border-2 border-[#C1553A] dark:border-[#FFA08A] bg-card dark:bg-gradient-to-b dark:from-[#1A263D] dark:to-[#121B2C] shadow-[0_6px_0_0_#85331E] dark:shadow-[0_8px_0_0_#7A2612,0_9px_0_1.5px_#FFA08A,0_20px_35px_rgba(224,90,58,0.25)]'
-                          : isLifetime
+                          : isMonthly
                           ? 'border-2 border-[#C89B4A] dark:border-[#FFE082] bg-card dark:bg-gradient-to-b dark:from-[#1C2538] dark:to-[#121B2C] shadow-[0_6px_0_0_#825F21] dark:shadow-[0_8px_0_0_#61440A,0_9px_0_1.5px_#FFE082,0_20px_35px_rgba(229,173,53,0.25)]'
                           : 'border-2 border-border dark:border-[#5E83C4] bg-card dark:bg-gradient-to-b dark:from-[#162238] dark:to-[#111A2B] shadow-[0_6px_0_0_var(--shadow-3d-card)] dark:shadow-[0_8px_0_0_#0D1624,0_9px_0_1.5px_#5E83C4,0_20px_35px_rgba(0,0,0,0.7)]'
                         }
@@ -392,7 +397,7 @@ export function UpgradeModal() {
                             <span className="text-3xl font-black text-foreground tracking-tight">₹{plan.price}</span>
                             <span className="text-xs text-muted-foreground font-semibold">{plan.periodText}</span>
                           </div>
-                          <p className={`text-[11px] font-semibold mt-0.5 ${isShopPass ? 'text-[#C1553A]' : isLifetime ? 'text-[#C89B4A]' : 'text-muted-foreground'}`}>
+                          <p className={`text-[11px] font-semibold mt-0.5 ${isShopPass ? 'text-[#C1553A]' : isMonthly ? 'text-[#C89B4A]' : 'text-muted-foreground'}`}>
                             {plan.subtext}
                           </p>
                         </div>
@@ -411,7 +416,7 @@ export function UpgradeModal() {
                       <Button
                         onClick={() => handlePlanCheckout(plan)}
                         disabled={isLoading}
-                        variant={isShopPass ? '3d-terracotta' : isLifetime ? '3d-gold' : '3d'}
+                        variant={isShopPass ? '3d-terracotta' : isMonthly ? '3d-gold' : '3d'}
                         className="w-full text-xs h-10 gap-1.5 font-bold"
                       >
                         {isLoading ? 'Opening Checkout...' : plan.ctaText}

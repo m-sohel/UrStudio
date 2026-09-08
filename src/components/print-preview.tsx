@@ -274,15 +274,30 @@ export function PrintPreview() {
           {isExportingPdf ? 'Saving PDF...' : 'Save as PDF'}
         </Button>
 
-        <Button
-          variant="3d-terracotta"
-          size="sm"
-          onClick={handlePrint}
-          className="h-8 px-3.5 text-xs font-bold gap-1.5"
-        >
-          <Printer className="w-4 h-4" />
-          Print Now
-        </Button>
+        {isPro ? (
+          <Button
+            variant="3d-terracotta"
+            size="sm"
+            onClick={handlePrint}
+            className="h-8 px-3.5 text-xs font-bold gap-1.5"
+          >
+            <Printer className="w-4 h-4" />
+            Print Now
+          </Button>
+        ) : (
+          <Button
+            variant="3d"
+            size="sm"
+            onClick={() => openUpgradeModal('Watermark-Free Direct Printing')}
+            className="h-8 px-3.5 text-xs font-bold gap-1.5 border-[#C89B4A] text-[#825F21] dark:text-[#D8A856] bg-[#C89B4A]/15 hover:bg-[#C89B4A]/25 shadow-[0_3px_0_0_#825F21]"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">Direct Print</span>
+            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#C89B4A] text-[#2A2013] font-bold">
+              PRO
+            </span>
+          </Button>
+        )}
       </div>
 
       {/* Instructions panel */}

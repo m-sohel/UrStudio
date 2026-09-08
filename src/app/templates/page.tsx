@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Plus, Trash2, Edit2, Copy, Image,
-  CreditCard, Check, Sparkles, LayoutGrid, Printer
+  CreditCard, Check, Sparkles, LayoutGrid, Printer, Crown
 } from 'lucide-react';
+import { useLicenseStore } from '@/store/license-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ export default function TemplatesPage() {
     addIDCardTemplate, deleteIDCardTemplate,
   } = useTemplateStore();
 
+  const { isPro, openUpgradeModal } = useLicenseStore();
   const { setSelectedTemplate, setMode, setStep } = useEditorStore();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -52,6 +54,10 @@ export default function TemplatesPage() {
   const [hasBackSide, setHasBackSide] = useState(true);
 
   const handleCreateTemplate = () => {
+    if (!isPro) {
+      openUpgradeModal('Custom Template Creation');
+      return;
+    }
     if (!name.trim()) {
       alert('Please enter a template name.');
       return;
@@ -103,16 +109,31 @@ export default function TemplatesPage() {
               </div>
             </div>
 
-            {/* Create Custom Template Modal */}
+            {/* Create Custom Template Trigger & Modal */}
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (!isPro) {
+                    openUpgradeModal('Custom Template Creation');
+                    return;
+                  }
+                  setIsDialogOpen(true);
+                }}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium cursor-pointer"
+              >
+                {!isPro && <Crown className="w-3.5 h-3.5 mr-1 text-[#FFE082]" />}
+                <Plus className="w-4 h-4 mr-1.5" />
+                Create Custom Template
+                {!isPro && (
+                  <span className="ml-1.5 text-[9px] bg-black/25 text-[#FFE082] border border-[#FFE082]/40 font-bold px-1.5 py-0.2 rounded-full">
+                    PRO
+                  </span>
+                )}
+              </Button>
+            </div>
+
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger
-                render={
-                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-orange-500/20 font-medium">
-                    <Plus className="w-4 h-4 mr-1.5" />
-                    Create Custom Template
-                  </Button>
-                }
-              />
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle>New Custom Template</DialogTitle>

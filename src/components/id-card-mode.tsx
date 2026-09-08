@@ -7,7 +7,8 @@ import {
   CreditCard, Upload, Check, Printer, RotateCw, RotateCcw,
   FlipHorizontal, FlipVertical, Sun, Contrast, Palette,
   Layers, ArrowRight, RefreshCw, Scissors, Info, Sparkles,
-  FileDown, Copy, FileText, Loader2
+  FileDown, Copy, FileText, Loader2, AlertTriangle, Wand2,
+  Lock, Unlock, Maximize2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,14 @@ export function IDCardMode() {
 
   // Active side in the editor
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
+  // Card Crop Orientation: 'horizontal' (85.6 × 54 mm) vs 'vertical' (54 × 85.6 mm)
+  const [cropOrientation, setCropOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [frontCardOrientation, setFrontCardOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [backCardOrientation, setBackCardOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
+  // Crop aspect ratio lock: false = Static/Free Corners (dragging one edge keeps other sides static)
+  // true = Proportional lock (85.6×54 or 54×85.6)
+  const [isAspectLocked, setIsAspectLocked] = useState<boolean>(false);
+
   const [printTab, setPrintTab] = useState<'sheet' | 'pvc'>('sheet');
   const [showInstructions, setShowInstructions] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -106,6 +115,138 @@ export function IDCardMode() {
       hasBackSide: true,
     };
   }, [selectedTemplateId]);
+
+  // Determine effective card dimensions for cropping
+  const isCardVertical = (idCardState.frontCroppedUrl ? frontCardOrientation : cropOrientation) === 'vertical';
+  const cardWidth = isCardVertical ? 53.98 : 85.6;
+  const cardHeight = isCardVertical ? 85.6 : 53.98;
+
+  // Card output orientation on the printed paper sheet: 'horizontal' (85.6x54) vs 'vertical' (54x85.6)
+  const [sheetCardOrientation, setSheetCardOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
+
+  // Effective dimensions for each card on the paper sheet
+  const sheetCardWidth = sheetCardOrientation === 'vertical' ? 53.98 : 85.6;
+  const sheetCardHeight = sheetCardOrientation === 'vertical' ? 85.6 : 53.98;
+
+  // Determine if card image needs 90deg rotation when rendered on sheet
+  const frontNeedsRotation = (frontCardOrientation === 'vertical') !== (sheetCardOrientation === 'vertical');
+  const backNeedsRotation = (backCardOrientation === 'vertical') !== (sheetCardOrientation === 'vertical');
+
+  // Toggle crop orientation between Horizontal and Vertical
+  const handleToggleOrientation = (orientation: 'horizontal' | 'vertical') => {
+    setCropOrientation(orientation);
+    if (activeSide === 'front') {
+      setFrontCardOrientation(orientation);
+    } else {
+      setBackCardOrientation(orientation);
+    }
+    const cropper = cropperRef.current?.cropper;
+    if (!cropper) return;
+    const targetRatio = orientation === 'vertical' ? 53.98 / 85.6 : 85.6 / 53.98;
+    if (isAspectLocked) {
+      cropper.setAspectRatio(targetRatio);
+    } else {
+      // In free/independent mode, swap width & height around current center while keeping aspect ratio unlocked (NaN)
+      const cropBox = cropper.getCropBoxData();
+      const containerData = cropper.getContainerData();
+      const centerX = cropBox.left + cropBox.width / 2;
+      const centerY = cropBox.top + cropBox.height / 2;
+
+      let newW = cropBox.width;
+      let newH = cropBox.height;
+      if (orientation === 'vertical' && cropBox.width > cropBox.height) {
+        newW = cropBox.height;
+        newH = cropBox.width;
+      } else if (orientation === 'horizontal' && cropBox.height > cropBox.width) {
+        newW = cropBox.height;
+        newH = cropBox.width;
+      }
+
+      const newLeft = Math.max(0, Math.min(containerData.width - newW, centerX - newW / 2));
+      const newTop = Math.max(0, Math.min(containerData.height - newH, centerY - newH / 2));
+
+      cropper.setCropBoxData({
+        left: newLeft,
+        top: newTop,
+        width: newW,
+        height: newH,
+      });
+      // Ensure aspect ratio stays unlocked (NaN) so other corners stay static
+      (cropper as any).options.aspectRatio = NaN;
+    }
+  };
+
+  // Switch between front and back sides while keeping orientation synced
+  const handleSelectSide = (side: 'front' | 'back') => {
+    setActiveSide(side);
+    const sideOrientation = side === 'front' ? frontCardOrientation : backCardOrientation;
+    setCropOrientation(sideOrientation);
+  };
+
+  // Toggle Aspect Ratio Lock (Static / Free Corner Adjust vs Strict Ratio)
+  const handleToggleAspectLock = () => {
+    const nextLocked = !isAspectLocked;
+    setIsAspectLocked(nextLocked);
+    const cropper = cropperRef.current?.cropper;
+    if (!cropper) return;
+    if (nextLocked) {
+      const targetRatio = cropOrientation === 'vertical' ? 53.98 / 85.6 : 85.6 / 53.98;
+      cropper.setAspectRatio(targetRatio);
+    } else {
+      (cropper as any).options.aspectRatio = NaN;
+    }
+  };
+
+  // Reset crop box to standard centered card dimensions
+  const handleResetCropBox = () => {
+    const cropper = cropperRef.current?.cropper;
+    if (!cropper) return;
+    const targetRatio = cropOrientation === 'vertical' ? 53.98 / 85.6 : 85.6 / 53.98;
+    cropper.setAspectRatio(targetRatio);
+    if (!isAspectLocked) {
+      (cropper as any).options.aspectRatio = NaN;
+    }
+  };
+
+  // 1-Click rotate 90° for already-cropped cards
+  const handleRotateCropped = async (side: 'front' | 'back') => {
+    const targetUrl = side === 'front' ? idCardState.frontCroppedUrl : idCardState.backCroppedUrl;
+    if (!targetUrl) return;
+
+    try {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image for rotation'));
+        img.src = targetUrl;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.height;
+      canvas.height = img.width;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((90 * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+      const newUrl = canvas.toDataURL('image/jpeg', 0.95);
+      if (side === 'front') {
+        const next = frontCardOrientation === 'vertical' ? 'horizontal' : 'vertical';
+        setFrontCardOrientation(next);
+        setCropOrientation(next);
+        setIDCardState({ frontCroppedUrl: newUrl });
+      } else {
+        const next = backCardOrientation === 'vertical' ? 'horizontal' : 'vertical';
+        setBackCardOrientation(next);
+        setCropOrientation(next);
+        setIDCardState({ backCroppedUrl: newUrl });
+      }
+    } catch (err) {
+      console.error('Error rotating cropped card:', err);
+    }
+  };
 
   const activeImage = activeSide === 'front' ? idCardState.frontImage : idCardState.backImage;
   const paper = getPaperSize(paperSettings.paperId) || PAPER_SIZES[0];
@@ -231,8 +372,10 @@ export function IDCardMode() {
     if (!cropper) return;
 
     const data = cropper.getData(true);
-    const outW = mmToPx(template.width, DEFAULT_DPI);
-    const outH = mmToPx(template.height, DEFAULT_DPI);
+    const targetCardW = cropOrientation === 'vertical' ? 53.98 : 85.6;
+    const targetCardH = cropOrientation === 'vertical' ? 85.6 : 53.98;
+    const outW = mmToPx(targetCardW, DEFAULT_DPI);
+    const outH = mmToPx(targetCardH, DEFAULT_DPI);
 
     const canvas = cropper.getCroppedCanvas({
       width: outW,
@@ -277,12 +420,14 @@ export function IDCardMode() {
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
     if (activeSide === 'front') {
+      setFrontCardOrientation(cropOrientation);
       setIDCardState({ frontCroppedUrl: dataUrl });
       // If back exists and not cropped, auto switch to back
       if (idCardState.backImage && !idCardState.backCroppedUrl) {
-        setActiveSide('back');
+        handleSelectSide('back');
       }
     } else {
+      setBackCardOrientation(cropOrientation);
       setIDCardState({ backCroppedUrl: dataUrl });
     }
   };
@@ -293,8 +438,8 @@ export function IDCardMode() {
     return calculateIDCardLayout({
       paperWidth: paperDims.width,
       paperHeight: paperDims.height,
-      cardWidth: template.width,
-      cardHeight: template.height,
+      cardWidth: sheetCardWidth,
+      cardHeight: sheetCardHeight,
       marginTop: paperSettings.marginTop,
       marginRight: paperSettings.marginRight,
       marginBottom: paperSettings.marginBottom,
@@ -305,7 +450,35 @@ export function IDCardMode() {
       arrangement: idCardState.arrangement,
       copies: copies,
     });
-  }, [paperDims, template, paperSettings, idCardState.frontBackGap, idCardState.arrangement, copies]);
+  }, [paperDims, sheetCardWidth, sheetCardHeight, paperSettings, idCardState.frontBackGap, idCardState.arrangement, copies]);
+
+  // Check if current configuration physically exceeds printable area
+  const isSheetOverflowing = useMemo(() => {
+    const pairW = idCardState.arrangement === 'side-by-side'
+      ? sheetCardWidth * 2 + (idCardState.frontBackGap || 5)
+      : sheetCardWidth;
+    const pairH = idCardState.arrangement === 'stacked'
+      ? sheetCardHeight * 2 + (idCardState.frontBackGap || 5)
+      : sheetCardHeight;
+    return pairW > paperDims.width || pairH > paperDims.height;
+  }, [idCardState.arrangement, idCardState.frontBackGap, sheetCardWidth, sheetCardHeight, paperDims]);
+
+  // 1-Click Auto-Fit layout to paper to eliminate any leaking
+  const handleAutoFitToSheet = useCallback(() => {
+    if (paperSettings.paperId === '4x6') {
+      if (sheetCardOrientation === 'vertical') {
+        // Vertical cards fit best in Landscape with side-by-side arrangement
+        setPaperSettings({ orientation: 'landscape' });
+        setIDCardState({ arrangement: 'side-by-side' });
+      } else {
+        // Horizontal cards fit best in Portrait with stacked arrangement
+        setPaperSettings({ orientation: 'portrait' });
+        setIDCardState({ arrangement: 'stacked' });
+      }
+    } else {
+      setIDCardState({ arrangement: 'stacked' });
+    }
+  }, [paperSettings.paperId, sheetCardOrientation, setPaperSettings, setIDCardState]);
 
   const settings = useSettingsStore();
 
@@ -320,17 +493,20 @@ export function IDCardMode() {
       paperWidth: paperDims.width,
       paperHeight: paperDims.height,
       orientation: paperSettings.orientation,
-      cardWidth: template.width,
-      cardHeight: template.height,
+      cardWidth: sheetCardWidth,
+      cardHeight: sheetCardHeight,
       frontImageUrl: idCardState.frontCroppedUrl,
       backImageUrl: idCardState.backCroppedUrl || undefined,
       showCuttingMarks: idCardState.showCuttingMarks,
       bleedMm: settings.defaultBleedMm,
       showCropMarks: settings.showCropMarks,
+      positions: sheetLayout.positions,
+      frontRotation: frontNeedsRotation ? 90 : 0,
+      backRotation: backNeedsRotation ? 90 : 0,
     });
 
     printViaIframe(html);
-  }, [paperDims, paperSettings, template, idCardState, settings]);
+  }, [paperDims, paperSettings, sheetCardWidth, sheetCardHeight, sheetLayout.positions, frontNeedsRotation, backNeedsRotation, idCardState, settings]);
 
   // Print PVC Single Side
   const handlePrintPVCSide = useCallback((side: 'front' | 'back') => {
@@ -341,17 +517,17 @@ export function IDCardMode() {
     }
 
     const html = generateIDCardPrintHTML({
-      paperWidth: template.width,
-      paperHeight: template.height,
-      orientation: 'landscape',
-      cardWidth: template.width,
-      cardHeight: template.height,
+      paperWidth: cardWidth,
+      paperHeight: cardHeight,
+      orientation: isCardVertical ? 'portrait' : 'landscape',
+      cardWidth,
+      cardHeight,
       frontImageUrl: imgUrl,
       pvcSingleSide: side,
     });
 
     printViaIframe(html);
-  }, [idCardState, template]);
+  }, [idCardState, cardWidth, cardHeight, isCardVertical]);
 
   // Export Sheet as PDF
   const handleSaveSheetPDF = useCallback(async () => {
@@ -366,8 +542,8 @@ export function IDCardMode() {
         paperWidth: paperDims.width,
         paperHeight: paperDims.height,
         orientation: paperSettings.orientation,
-        cardWidth: template.width,
-        cardHeight: template.height,
+        cardWidth: sheetCardWidth,
+        cardHeight: sheetCardHeight,
         positions: sheetLayout.positions,
         frontImageUrl: idCardState.frontCroppedUrl,
         backImageUrl: idCardState.backCroppedUrl || undefined,
@@ -375,6 +551,8 @@ export function IDCardMode() {
         bleedMm: settings.defaultBleedMm,
         showCropMarks: settings.showCropMarks,
         templateName: template.name,
+        frontRotation: frontNeedsRotation ? 90 : 0,
+        backRotation: backNeedsRotation ? 90 : 0,
       });
     } catch (err) {
       console.error('Failed to export ID card sheet PDF:', err);
@@ -382,7 +560,7 @@ export function IDCardMode() {
     } finally {
       setIsExportingPdf(false);
     }
-  }, [paperDims, paperSettings, template, sheetLayout, idCardState, settings]);
+  }, [paperDims, paperSettings, sheetCardWidth, sheetCardHeight, template.name, sheetLayout, frontNeedsRotation, backNeedsRotation, idCardState, settings]);
 
   // Export Direct CR80 PVC Card as PDF
   const handleSavePVCPDF = useCallback(async () => {
@@ -394,11 +572,11 @@ export function IDCardMode() {
     try {
       setIsExportingPdf(true);
       await exportPVCCardToPDF({
-        cardWidth: template.width,
-        cardHeight: template.height,
+        cardWidth,
+        cardHeight,
         frontImageUrl: idCardState.frontCroppedUrl,
         backImageUrl: idCardState.backCroppedUrl || undefined,
-        filename: `UrStudio_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_CR80_${Date.now()}.pdf`,
+        filename: `UrStudio_${template.name.replace(/[^a-zA-Z0-9]/g, '_')}_${isCardVertical ? 'Vertical' : 'Horizontal'}_${Date.now()}.pdf`,
       });
     } catch (err) {
       console.error('Failed to export PVC card PDF:', err);
@@ -406,7 +584,7 @@ export function IDCardMode() {
     } finally {
       setIsExportingPdf(false);
     }
-  }, [idCardState, template]);
+  }, [idCardState, cardWidth, cardHeight, template.name, isCardVertical]);
 
   // Rotate
   const handleRotate = (deg: number) => {
@@ -450,7 +628,7 @@ export function IDCardMode() {
           <CreditCard className="w-5 h-5 text-cyan-400" />
           <h2 className="text-sm font-semibold tracking-tight">{template.name} Mode</h2>
           <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-300 bg-cyan-500/10">
-            {template.width} × {template.height} mm (CR80)
+            {isCardVertical ? '54 × 85.6 mm (Vertical CR80)' : '85.6 × 54 mm (Horizontal CR80)'}
           </Badge>
         </div>
 
@@ -504,13 +682,13 @@ export function IDCardMode() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel: Upload & Cropping (50%) */}
         <div className="w-1/2 border-r border-border flex flex-col bg-card overflow-hidden">
-          {/* Side Selector Tabs (Front vs Back) */}
+          {/* Side Selector Tabs (Front vs Back) & Crop Orientation Toggle */}
           <div className="p-3 border-b border-border flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant={activeSide === 'front' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setActiveSide('front')}
+                onClick={() => handleSelectSide('front')}
                 className="text-xs"
               >
                 Front Side {idCardState.frontCroppedUrl && '✓'}
@@ -518,11 +696,43 @@ export function IDCardMode() {
               <Button
                 variant={activeSide === 'back' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setActiveSide('back')}
+                onClick={() => handleSelectSide('back')}
                 className="text-xs"
               >
                 Back Side {idCardState.backCroppedUrl && '✓'}
               </Button>
+
+              {/* Crop Orientation Segmented Control (Horizontal vs Vertical) */}
+              <div className="flex items-center bg-muted/80 p-0.5 rounded-lg border border-border">
+                <button
+                  type="button"
+                  onClick={() => handleToggleOrientation('horizontal')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer",
+                    cropOrientation === 'horizontal'
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Crop as Horizontal CR80 Card (85.6 × 54 mm)"
+                >
+                  <span className="w-3.5 h-2.5 rounded-[2px] border-2 border-current block" />
+                  <span>Horizontal (85.6×54)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleOrientation('vertical')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer",
+                    cropOrientation === 'vertical'
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Crop as Vertical Card (54 × 85.6 mm) - e.g. Vertical Aadhaar, Student ID, Employee Badge"
+                >
+                  <span className="w-2.5 h-3.5 rounded-[2px] border-2 border-current block" />
+                  <span>Vertical (54×85.6)</span>
+                </button>
+              </div>
 
               {/* Quick page switcher if uploaded PDF has multiple pages */}
               {loadedPdfSession && loadedPdfSession.pages.length > 1 && (
@@ -597,15 +807,18 @@ export function IDCardMode() {
                 ref={cropperRef}
                 src={activeImage.objectUrl}
                 style={{ height: '100%', width: '100%' }}
-                aspectRatio={template.aspectRatio}
+                aspectRatio={isAspectLocked ? (cropOrientation === 'vertical' ? 53.98 / 85.6 : 85.6 / 53.98) : NaN}
+                initialAspectRatio={cropOrientation === 'vertical' ? 53.98 / 85.6 : 85.6 / 53.98}
                 viewMode={1}
                 guides={true}
                 center={true}
                 highlight={true}
                 background={true}
-                autoCropArea={0.9}
+                autoCropArea={0.88}
                 responsive={true}
                 zoomOnWheel={true}
+                cropBoxMovable={true}
+                cropBoxResizable={true}
               />
             ) : (
               <div className="flex flex-col items-center justify-center max-w-md w-full text-center space-y-4">
@@ -709,29 +922,95 @@ export function IDCardMode() {
           {/* Cropper Toolbar */}
           {activeImage && (
             <div className="p-3 border-t border-border bg-card/50 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={() => handleRotate(-90)}>
-                  <RotateCcw className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={() => handleRotate(-90)} title="Rotate Left -90°">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={() => handleRotate(90)} title="Rotate Right +90°">
+                    <RotateCw className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={handleFlipH} title="Flip Horizontal">
+                    <FlipHorizontal className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={handleFlipV} title="Flip Vertical">
+                    <FlipVertical className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleToggleOrientation(cropOrientation === 'horizontal' ? 'vertical' : 'horizontal')}
+                  className="h-8 text-xs gap-1.5 font-medium border-primary/40 hover:bg-primary/10 cursor-pointer"
+                  title="Switch between Horizontal (85.6×54) and Vertical (54×85.6) card crop box"
+                >
+                  {cropOrientation === 'vertical' ? (
+                    <span className="w-2.5 h-3.5 rounded-[2px] border-2 border-primary block" />
+                  ) : (
+                    <span className="w-3.5 h-2.5 rounded-[2px] border-2 border-primary block" />
+                  )}
+                  <span>Crop: {cropOrientation === 'vertical' ? 'Vertical (54×85.6)' : 'Horizontal (85.6×54)'}</span>
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={() => handleRotate(90)}>
-                  <RotateCw className="w-3.5 h-3.5" />
+
+                {/* Free / Static Corner Adjust Toggle */}
+                <Button
+                  variant={isAspectLocked ? "outline" : "secondary"}
+                  size="sm"
+                  onClick={handleToggleAspectLock}
+                  className={cn(
+                    "h-8 text-xs gap-1.5 font-medium cursor-pointer transition-colors",
+                    !isAspectLocked
+                      ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/25"
+                      : "border-border text-muted-foreground hover:bg-accent/40"
+                  )}
+                  title={isAspectLocked
+                    ? "Aspect ratio is locked proportionally. Click to switch to Static / Free Corners."
+                    : "Static Corners Active: Resizing one side leaves all other sides static. Click to lock aspect ratio."
+                  }
+                >
+                  {!isAspectLocked ? (
+                    <>
+                      <Unlock className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Static / Free Corners</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Locked Ratio</span>
+                    </>
+                  )}
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={handleFlipH}>
-                  <FlipHorizontal className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent" onClick={handleFlipV}>
-                  <FlipVertical className="w-3.5 h-3.5" />
+
+                {/* Reset Crop Box Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetCropBox}
+                  className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                  title="Reset crop box to standard card size in center"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>Reset Box</span>
                 </Button>
               </div>
 
-              <Button
-                size="sm"
-                onClick={handleApplyCrop}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium"
-              >
-                <Check className="w-3.5 h-3.5 mr-1" />
-                Apply {activeSide === 'front' ? 'Front' : 'Back'} Crop
-              </Button>
+              <div className="flex items-center gap-2">
+                {!isAspectLocked && (
+                  <span className="text-[11px] text-muted-foreground hidden lg:inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    Each corner moves independently (others stay static)
+                  </span>
+                )}
+                <Button
+                  size="sm"
+                  onClick={handleApplyCrop}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium"
+                >
+                  <Check className="w-3.5 h-3.5 mr-1" />
+                  Apply {activeSide === 'front' ? 'Front' : 'Back'} Crop ({cropOrientation === 'vertical' ? 'Vertical' : 'Horizontal'})
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -750,14 +1029,38 @@ export function IDCardMode() {
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-xs flex-wrap">
                 {idCardState.frontCroppedUrl ? (
-                  <Badge variant="secondary" className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Front Cropped ✓</Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      Front ({frontCardOrientation === 'vertical' ? 'Vertical' : 'Horizontal'}) ✓
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={() => handleRotateCropped('front')}
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                      title="Rotate Front Card 90°"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ) : (
                   <Badge variant="outline" className="border-border/60 text-muted-foreground">Front Pending</Badge>
                 )}
                 {idCardState.backCroppedUrl ? (
-                  <Badge variant="secondary" className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Back Cropped ✓</Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      Back ({backCardOrientation === 'vertical' ? 'Vertical' : 'Horizontal'}) ✓
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={() => handleRotateCropped('back')}
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                      title="Rotate Back Card 90°"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ) : (
                   <Badge variant="outline" className="border-border/60 text-muted-foreground">Back Optional</Badge>
                 )}
@@ -767,12 +1070,27 @@ export function IDCardMode() {
             {/* TAB 1: Paper Sheet Layout */}
             <TabsContent value="sheet" className="flex-1 flex flex-col overflow-hidden m-0 p-4 space-y-4">
               {/* Sheet Settings Controls */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium text-muted-foreground">Paper Size</Label>
                   <Select
                     value={paperSettings.paperId}
-                    onValueChange={(v) => { if (v) setPaperSettings({ paperId: v }); }}
+                    onValueChange={(v) => {
+                      if (v) {
+                        if (v === '4x6') {
+                          // Automatically set the optimal orientation that fits on 4x6 without leaking
+                          if (sheetCardOrientation === 'vertical') {
+                            setPaperSettings({ paperId: v, orientation: 'landscape' });
+                            setIDCardState({ arrangement: 'side-by-side' });
+                          } else {
+                            setPaperSettings({ paperId: v, orientation: 'portrait' });
+                            setIDCardState({ arrangement: 'stacked' });
+                          }
+                        } else {
+                          setPaperSettings({ paperId: v });
+                        }
+                      }
+                    }}
                   >
                     <SelectTrigger className="h-8.5 text-xs w-full">
                       <SelectValue />
@@ -781,6 +1099,68 @@ export function IDCardMode() {
                       {PAPER_SIZES.filter(p => p.id !== 'pvc-card').map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name} ({p.width}×{p.height}mm)</SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Paper Orientation</Label>
+                  <Select
+                    value={paperSettings.orientation}
+                    onValueChange={(v) => {
+                      if (v) {
+                        setPaperSettings({ orientation: v as 'portrait' | 'landscape' });
+                        if (paperSettings.paperId === '4x6') {
+                          if (v === 'landscape' && sheetCardOrientation === 'horizontal') {
+                            // On 4x6 landscape, switch card to vertical side-by-side to fit without leaking
+                            setSheetCardOrientation('vertical');
+                            setIDCardState({ arrangement: 'side-by-side' });
+                          } else if (v === 'portrait' && sheetCardOrientation === 'vertical') {
+                            // On 4x6 portrait, switch card to horizontal stacked to fit without leaking
+                            setSheetCardOrientation('horizontal');
+                            setIDCardState({ arrangement: 'stacked' });
+                          }
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8.5 text-xs w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portrait">Portrait (Vertical)</SelectItem>
+                      <SelectItem value="landscape">Landscape (Horizontal)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Card Output Orientation on Sheet: Horizontal (85.6x54) vs Vertical (54x85.6) */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">Card Output</Label>
+                  <Select
+                    value={sheetCardOrientation}
+                    onValueChange={(v) => {
+                      if (v) {
+                        const newOri = v as 'horizontal' | 'vertical';
+                        setSheetCardOrientation(newOri);
+                        if (paperSettings.paperId === '4x6') {
+                          if (newOri === 'vertical') {
+                            setPaperSettings({ orientation: 'landscape' });
+                            setIDCardState({ arrangement: 'side-by-side' });
+                          } else {
+                            setPaperSettings({ orientation: 'portrait' });
+                            setIDCardState({ arrangement: 'stacked' });
+                          }
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8.5 text-xs w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="horizontal">Horizontal (85.6×54)</SelectItem>
+                      <SelectItem value="vertical">Vertical (54×85.6)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -823,6 +1203,31 @@ export function IDCardMode() {
                 </div>
               </div>
 
+              {/* Overflow warning banner with Auto-Fit action */}
+              {isSheetOverflowing && (
+                <div className="flex items-center justify-between p-2 px-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-600 dark:text-amber-400">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
+                    <span>
+                      {paperSettings.paperId === '4x6'
+                        ? (sheetCardOrientation === 'horizontal'
+                            ? 'Stacked horizontal cards (113mm) exceed 4x6 Landscape height (101.6mm).'
+                            : 'Stacked vertical cards (176mm) exceed 4x6 Portrait height (152.4mm).')
+                        : 'Selected card arrangement exceeds paper printable area.'}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAutoFitToSheet}
+                    className="h-6 text-[11px] px-2.5 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 font-medium shrink-0 ml-2"
+                  >
+                    <Wand2 className="w-3 h-3 mr-1" />
+                    Auto-Fit
+                  </Button>
+                </div>
+              )}
+
               {/* Cutting guides toggle */}
               <div className="flex items-center justify-between py-1 px-1 bg-card/40 rounded-lg border border-border/40">
                 <div className="flex items-center gap-2">
@@ -839,65 +1244,105 @@ export function IDCardMode() {
               {/* Visual Sheet Canvas Preview */}
               <div className="flex-1 border border-border rounded-lg bg-muted/20 overflow-auto flex items-center justify-center p-4">
                 {idCardState.frontCroppedUrl ? (
-                  <div
-                    className="relative bg-white shadow-xl border border-gray-300"
-                    style={{
-                      width: `${paperDims.width * 1.5}px`,
-                      height: `${paperDims.height * 1.5}px`,
-                      maxHeight: '100%',
-                      maxWidth: '100%',
-                      aspectRatio: `${paperDims.width} / ${paperDims.height}`,
-                    }}
-                  >
-                    {sheetLayout.positions.map((pos, idx) => {
-                      const scale = 1.5;
-                      return (
-                        <React.Fragment key={idx}>
-                          {/* Front card */}
-                          <div
-                            className={`absolute overflow-hidden ${idCardState.showCuttingMarks ? 'border border-gray-400 rounded-sm' : ''}`}
-                            style={{
-                              left: `${pos.front.x * scale}px`,
-                              top: `${pos.front.y * scale}px`,
-                              width: `${pos.front.width * scale}px`,
-                              height: `${pos.front.height * scale}px`,
-                            }}
-                          >
-                            <img
-                              src={idCardState.frontCroppedUrl!}
-                              alt="Front"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-
-                          {/* Back card */}
-                          {pos.back && (
+                  sheetLayout.positions.length > 0 ? (
+                    <div
+                      className="relative bg-white shadow-xl border border-gray-300"
+                      style={{
+                        width: `${paperDims.width * 1.5}px`,
+                        height: `${paperDims.height * 1.5}px`,
+                        maxHeight: '100%',
+                        maxWidth: '100%',
+                        aspectRatio: `${paperDims.width} / ${paperDims.height}`,
+                      }}
+                    >
+                      {sheetLayout.positions.map((pos, idx) => {
+                        const scale = 1.5;
+                        return (
+                          <React.Fragment key={idx}>
+                            {/* Front card */}
                             <div
-                              className={`absolute overflow-hidden ${idCardState.showCuttingMarks ? 'border border-gray-400 rounded-sm' : ''}`}
+                              className={`absolute overflow-hidden flex items-center justify-center ${idCardState.showCuttingMarks ? 'border border-gray-400 rounded-sm' : ''}`}
                               style={{
-                                left: `${pos.back.x * scale}px`,
-                                top: `${pos.back.y * scale}px`,
-                                width: `${pos.back.width * scale}px`,
-                                height: `${pos.back.height * scale}px`,
+                                left: `${pos.front.x * scale}px`,
+                                top: `${pos.front.y * scale}px`,
+                                width: `${pos.front.width * scale}px`,
+                                height: `${pos.front.height * scale}px`,
                               }}
                             >
-                              {idCardState.backCroppedUrl ? (
-                                <img
-                                  src={idCardState.backCroppedUrl}
-                                  alt="Back"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-300">
-                                  Back Side
-                                </div>
-                              )}
+                              <img
+                                src={idCardState.frontCroppedUrl!}
+                                alt="Front"
+                                className="object-cover"
+                                style={frontNeedsRotation ? {
+                                  width: `${pos.front.height * scale}px`,
+                                  height: `${pos.front.width * scale}px`,
+                                  transform: 'rotate(90deg)',
+                                  transformOrigin: 'center center',
+                                } : {
+                                  width: '100%',
+                                  height: '100%',
+                                }}
+                              />
                             </div>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
+
+                            {/* Back card */}
+                            {pos.back && (
+                              <div
+                                className={`absolute overflow-hidden flex items-center justify-center ${idCardState.showCuttingMarks ? 'border border-gray-400 rounded-sm' : ''}`}
+                                style={{
+                                  left: `${pos.back.x * scale}px`,
+                                  top: `${pos.back.y * scale}px`,
+                                  width: `${pos.back.width * scale}px`,
+                                  height: `${pos.back.height * scale}px`,
+                                }}
+                              >
+                                {idCardState.backCroppedUrl ? (
+                                  <img
+                                    src={idCardState.backCroppedUrl}
+                                    alt="Back"
+                                    className="object-cover"
+                                    style={backNeedsRotation ? {
+                                      width: `${pos.back.height * scale}px`,
+                                      height: `${pos.back.width * scale}px`,
+                                      transform: 'rotate(90deg)',
+                                      transformOrigin: 'center center',
+                                    } : {
+                                      width: '100%',
+                                      height: '100%',
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[9px] text-gray-400 border border-dashed border-gray-300">
+                                    Back Side
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-6 text-center max-w-sm">
+                      <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
+                        <AlertTriangle className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-foreground mb-1">Cards Exceed Printable Area</h4>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        {idCardState.arrangement === 'stacked'
+                          ? `Stacked cards exceed the ${paperDims.height}mm paper height.`
+                          : `Side-by-side cards exceed the ${paperDims.width}mm paper width.`}
+                      </p>
+                      <Button
+                        size="sm"
+                        onClick={handleAutoFitToSheet}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs gap-1.5 shadow-sm"
+                      >
+                        <Wand2 className="w-3.5 h-3.5" />
+                        <span>Auto-Fit Paper & Card Orientation</span>
+                      </Button>
+                    </div>
+                  )
                 ) : (
                   <p className="text-xs text-muted-foreground">Crop Front Side to preview sheet layout</p>
                 )}
@@ -952,7 +1397,10 @@ export function IDCardMode() {
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 pt-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="w-32 sm:w-36 aspect-[85.6/53.98] rounded-lg bg-muted overflow-hidden border border-border flex items-center justify-center shrink-0 shadow-xs">
+                  <div className={cn(
+                    "rounded-lg bg-muted overflow-hidden border border-border flex items-center justify-center shrink-0 shadow-xs",
+                    isCardVertical ? "w-24 sm:w-28 aspect-[53.98/85.6]" : "w-32 sm:w-36 aspect-[85.6/53.98]"
+                  )}>
                     {idCardState.frontCroppedUrl ? (
                       <img src={idCardState.frontCroppedUrl} alt="Front Card" className="w-full h-full object-cover" />
                     ) : (
@@ -990,7 +1438,10 @@ export function IDCardMode() {
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 pt-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="w-32 sm:w-36 aspect-[85.6/53.98] rounded-lg bg-muted overflow-hidden border border-border flex items-center justify-center shrink-0 shadow-xs">
+                  <div className={cn(
+                    "rounded-lg bg-muted overflow-hidden border border-border flex items-center justify-center shrink-0 shadow-xs",
+                    isCardVertical ? "w-24 sm:w-28 aspect-[53.98/85.6]" : "w-32 sm:w-36 aspect-[85.6/53.98]"
+                  )}>
                     {idCardState.backCroppedUrl ? (
                       <img src={idCardState.backCroppedUrl} alt="Back Card" className="w-full h-full object-cover" />
                     ) : (

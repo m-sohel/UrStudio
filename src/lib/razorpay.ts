@@ -173,7 +173,7 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
       // Standalone direct checkout without backend order (fallback mode)
       const seed = paymentId.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase() || 'RZPPAY';
       const generatedKey = generateOfflineLicenseKey(
-        options.tier === 'single_pass' ? 'single_pass' : options.tier === 'annual' ? 'annual' : 'lifetime',
+        options.tier === 'single_pass' ? 'single_pass' : options.tier === 'monthly' ? 'monthly' : 'annual',
         { seed }
       );
 

@@ -1,12 +1,14 @@
 'use client';
 
-import React from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  User, CreditCard, Stamp, Image, Square, Car, Vote, IdCard
+  User, CreditCard, Stamp, Image, Square, Car, Vote, IdCard, Plus, Crown
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLicenseStore } from '@/store/license-store';
 import { useEditorStore } from '@/store/editor-store';
 import { useTemplateStore } from '@/store/template-store';
 import {
@@ -160,6 +162,8 @@ function IDCardTemplateCard({
 }
 
 export function TemplateSelector() {
+  const router = useRouter();
+  const { isPro, openUpgradeModal } = useLicenseStore();
   const { images, selectedTemplateId, setSelectedTemplate, setStep, setMode, setCopies } = useEditorStore();
   const { customPhotoTemplates, customIDCardTemplates } = useTemplateStore();
 
@@ -181,7 +185,8 @@ export function TemplateSelector() {
   };
 
   return (
-    <Tabs defaultValue="photos" className="flex flex-col h-full">
+    <div className="flex flex-col h-full">
+      <Tabs defaultValue="photos" className="flex flex-col flex-1 min-h-0">
       <TabsList className="mx-3 mt-3 grid w-auto grid-cols-2">
         <TabsTrigger value="photos" className="text-xs">Photos</TabsTrigger>
         <TabsTrigger value="id-cards" className="text-xs">ID Cards</TabsTrigger>
@@ -217,5 +222,34 @@ export function TemplateSelector() {
         </ScrollArea>
       </TabsContent>
     </Tabs>
+
+    <div className="p-2.5 border-t border-border bg-card/60 shrink-0">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          if (!isPro) {
+            openUpgradeModal('Custom Templates');
+            return;
+          }
+          router.push('/templates');
+        }}
+        className="w-full text-xs h-8 gap-1.5 border-dashed hover:border-primary/50 cursor-pointer justify-between"
+      >
+        <span className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground">
+          <Plus className="w-3.5 h-3.5" />
+          Create Custom Preset
+        </span>
+        {!isPro ? (
+          <span className="flex items-center gap-0.5 text-[9px] font-bold text-[#C89B4A] bg-[#C89B4A]/10 px-1.5 py-0.5 rounded border border-[#C89B4A]/30">
+            <Crown className="w-2.5 h-2.5" />
+            PRO
+          </span>
+        ) : (
+          <span className="text-[10px] text-muted-foreground font-mono">Manage →</span>
+        )}
+      </Button>
+    </div>
+  </div>
   );
 }

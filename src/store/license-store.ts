@@ -25,6 +25,9 @@ interface LicenseState {
   singlePassCount: number;
   shopBranding: ShopBrandingConfig;
 
+  // Background replacement session tracking (2 free per session, not persisted)
+  bgReplacementsUsed: number;
+
   // Upgrade Modal UI state
   isUpgradeModalOpen: boolean;
   modalHighlightFeature: string | null;
@@ -38,6 +41,8 @@ interface LicenseState {
   openUpgradeModal: (featureHint?: string) => void;
   closeUpgradeModal: () => void;
   checkExpiration: () => void;
+  incrementBgReplacement: () => void;
+  canUseBgReplacement: () => boolean;
 }
 
 export const useLicenseStore = create<LicenseState>()(
@@ -50,6 +55,7 @@ export const useLicenseStore = create<LicenseState>()(
       expiresAt: null,
       singlePassCount: 0,
       shopBranding: DEFAULT_SHOP_BRANDING,
+      bgReplacementsUsed: 0,
 
       isUpgradeModalOpen: false,
       modalHighlightFeature: null,
@@ -94,7 +100,7 @@ export const useLicenseStore = create<LicenseState>()(
 
       consumeSinglePass: () => {
         const state = get();
-        if (state.tier === 'lifetime' || state.tier === 'annual') {
+        if (state.tier === 'monthly' || state.tier === 'annual') {
           return true; // Unlimited exports
         }
 
@@ -147,7 +153,7 @@ export const useLicenseStore = create<LicenseState>()(
 
       checkExpiration: () => {
         const state = get();
-        if (state.tier === 'annual' && state.expiresAt) {
+        if ((state.tier === 'annual' || state.tier === 'monthly') && state.expiresAt) {
           if (Date.now() > state.expiresAt) {
             set({
               isPro: false,
@@ -156,6 +162,18 @@ export const useLicenseStore = create<LicenseState>()(
             });
           }
         }
+      },
+
+      incrementBgReplacement: () => {
+        set((state) => ({
+          bgReplacementsUsed: state.bgReplacementsUsed + 1,
+        }));
+      },
+
+      canUseBgReplacement: () => {
+        const state = get();
+        if (state.isPro) return true; // Pro users get unlimited
+        return state.bgReplacementsUsed < 2; // 2 free per session
       },
     }),
     {
