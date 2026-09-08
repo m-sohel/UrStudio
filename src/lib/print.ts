@@ -18,6 +18,8 @@ export interface WatermarkPrintConfig {
   };
 }
 
+import type { PhotoBorderSettings } from './templates';
+
 export interface PrintConfig {
   paperWidth: number;
   paperHeight: number;
@@ -29,6 +31,7 @@ export interface PrintConfig {
   itemWidth: number;
   itemHeight: number;
   showCuttingMarks?: boolean;
+  photoBorder?: PhotoBorderSettings;
   bleedMm?: number;
   showCropMarks?: boolean;
   watermark?: WatermarkPrintConfig;
@@ -56,13 +59,21 @@ export interface IDCardPrintConfig {
 export function generatePrintHTML(config: PrintConfig): string {
   const {
     paperWidth, paperHeight, orientation, positions, imageUrl, slots,
-    itemWidth, itemHeight, showCuttingMarks, bleedMm = 0, showCropMarks = true,
+    itemWidth, itemHeight, showCuttingMarks, photoBorder, bleedMm = 0, showCropMarks = true,
     watermark,
   } = config;
 
-  const pageWidth = orientation === 'landscape' ? paperHeight : paperWidth;
-  const pageHeight = orientation === 'landscape' ? paperWidth : paperHeight;
-  const cellBorder = showCuttingMarks ? 'border: 0.15mm dashed rgba(0,0,0,0.35);' : '';
+  const isLandscape = orientation === 'landscape';
+  const pageWidth = isLandscape ? Math.max(paperWidth, paperHeight) : Math.min(paperWidth, paperHeight);
+  const pageHeight = isLandscape ? Math.min(paperWidth, paperHeight) : Math.max(paperWidth, paperHeight);
+
+  let cellBorder = '';
+  if (photoBorder?.enabled && photoBorder.style !== 'none') {
+    const borderW = photoBorder.width ?? photoBorder.widthMm ?? 0.5;
+    cellBorder = `border: ${borderW}mm ${photoBorder.style} ${photoBorder.color}; box-sizing: border-box;`;
+  } else if (showCuttingMarks) {
+    cellBorder = 'border: 0.15mm dashed rgba(0,0,0,0.35); box-sizing: border-box;';
+  }
 
   const itemsToRender = slots && slots.length > 0
     ? slots

@@ -8,17 +8,19 @@ import { Separator } from '@/components/ui/separator';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Square, Palette } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useEditorStore } from '@/store/editor-store';
 import {
   PAPER_SIZES, getPaperSize, getEffectivePaperDimensions,
-  getPhotoTemplate, getIDCardTemplate,
+  getPhotoTemplate, getIDCardTemplate, getDefaultPaperSettings,
 } from '@/lib/templates';
 import { calculateLayout, calculateOptimalLayout } from '@/lib/layout-engine';
 
 export function PaperSelector() {
   const {
     paperSettings, setPaperSettings,
+    photoBorder, setPhotoBorder,
     selectedTemplateId, selectedTemplateType,
     copies, setCopies,
     setLayoutResult,
@@ -84,7 +86,14 @@ export function PaperSelector() {
         <Label className="text-xs font-medium">Paper Size</Label>
         <Select
           value={paperSettings.paperId}
-          onValueChange={(v) => { if (v) setPaperSettings({ paperId: v }); }}
+          onValueChange={(v) => {
+            if (v === '4x6') {
+              setPaperSettings(getDefaultPaperSettings('4x6'));
+              setCopies(8);
+            } else if (v) {
+              setPaperSettings({ paperId: v });
+            }
+          }}
         >
           <SelectTrigger className="h-9">
             <SelectValue />
@@ -248,6 +257,163 @@ export function PaperSelector() {
             />
           </div>
         </div>
+      </div>
+
+      <Separator />
+
+      {/* Passport Photo Border & Frame */}
+      <div className="space-y-3 p-3 bg-muted/40 rounded-lg border border-border/70">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Square className="w-4 h-4 text-primary" />
+            <div>
+              <Label className="text-xs font-semibold leading-none">Photo Cut Border</Label>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Passport cut guide & studio border</p>
+            </div>
+          </div>
+          <Switch
+            checked={photoBorder.enabled}
+            onCheckedChange={(checked) => setPhotoBorder({ enabled: checked })}
+          />
+        </div>
+
+        {photoBorder.enabled && (
+          <div className="space-y-3 pt-1 animate-fadeIn">
+            {/* Live Border Sample Swatch */}
+            <div className="p-2 bg-background rounded border border-border flex items-center justify-between text-xs">
+              <span className="text-[11px] text-muted-foreground">Border Preview:</span>
+              <div
+                className="w-16 h-8 bg-white flex items-center justify-center rounded shadow-xs"
+                style={{
+                  border: `${Math.max(1, photoBorder.width * 2)}px ${photoBorder.style} ${photoBorder.color}`,
+                  boxSizing: 'border-box',
+                }}
+              >
+                <span className="text-[8px] text-gray-400 font-mono">35×45</span>
+              </div>
+            </div>
+
+            {/* Thickness / Width (mm) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-medium">Border Thickness</Label>
+                <span className="text-[11px] font-mono font-semibold text-primary">{photoBorder.width} mm</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                {[
+                  { label: '0.2 mm', val: 0.2, desc: 'Hairline' },
+                  { label: '0.5 mm', val: 0.5, desc: 'Standard' },
+                  { label: '1.0 mm', val: 1.0, desc: 'Medium' },
+                  { label: '1.5 mm', val: 1.5, desc: 'Bold' },
+                ].map((item) => (
+                  <Button
+                    key={item.val}
+                    type="button"
+                    variant={photoBorder.width === item.val ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-[10px] px-1 font-medium"
+                    onClick={() => setPhotoBorder({ width: item.val })}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Custom width:</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min={0.1}
+                  max={5}
+                  value={photoBorder.width}
+                  onChange={(e) => setPhotoBorder({ width: Math.max(0.1, parseFloat(e.target.value) || 0.1) })}
+                  className="h-6 text-[11px] w-20"
+                />
+                <span className="text-[10px] text-muted-foreground">mm</span>
+              </div>
+            </div>
+
+            {/* Border Style */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-medium">Border Style</Label>
+              <div className="grid grid-cols-4 gap-1">
+                {[
+                  { label: 'Solid', val: 'solid' },
+                  { label: 'Double', val: 'double' },
+                  { label: 'Dashed', val: 'dashed' },
+                  { label: 'Dotted', val: 'dotted' },
+                ].map((st) => (
+                  <Button
+                    key={st.val}
+                    type="button"
+                    variant={photoBorder.style === st.val ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-[10px] px-1 font-medium capitalize"
+                    onClick={() => setPhotoBorder({ style: st.val as any })}
+                  >
+                    {st.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Border Color */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-medium">Border Color</Label>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-3.5 h-3.5 rounded-full border border-border shadow-xs inline-block"
+                    style={{ backgroundColor: photoBorder.color }}
+                  />
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase">{photoBorder.color}</span>
+                </div>
+              </div>
+
+              {/* Color chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { name: 'Classic Gray', hex: '#D1D5DB' },
+                  { name: 'Crisp Black', hex: '#000000' },
+                  { name: 'Pure White', hex: '#FFFFFF' },
+                  { name: 'Slate', hex: '#64748B' },
+                  { name: 'Navy Blue', hex: '#1E3A8A' },
+                  { name: 'Terracotta', hex: '#E05A47' },
+                ].map((c) => (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    title={c.name}
+                    onClick={() => setPhotoBorder({ color: c.hex })}
+                    className={`w-6 h-6 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
+                      photoBorder.color.toLowerCase() === c.hex.toLowerCase()
+                        ? 'ring-2 ring-primary ring-offset-1 border-primary scale-110'
+                        : 'border-border/80 hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  >
+                    {photoBorder.color.toLowerCase() === c.hex.toLowerCase() && (
+                      <span className={`text-[9px] font-bold ${c.hex === '#FFFFFF' || c.hex === '#D1D5DB' ? 'text-black' : 'text-white'}`}>✓</span>
+                    )}
+                  </button>
+                ))}
+
+                {/* Custom Color Picker input */}
+                <label
+                  title="Pick custom color"
+                  className="w-6 h-6 rounded-full border border-border overflow-hidden cursor-pointer relative hover:scale-105 transition-transform flex items-center justify-center bg-gradient-to-tr from-rose-500 via-amber-400 to-indigo-500"
+                >
+                  <input
+                    type="color"
+                    value={photoBorder.color}
+                    onChange={(e) => setPhotoBorder({ color: e.target.value })}
+                    className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

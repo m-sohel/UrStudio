@@ -528,20 +528,64 @@ export const PAPER_SIZES: PaperSize[] = [
   },
 ];
 
+export type PhotoBorderStyle = 'solid' | 'double' | 'dashed' | 'dotted' | 'none';
+
+export interface PhotoBorderSettings {
+  enabled: boolean;
+  width: number; // 0.2, 0.5, 1.0, 1.5, etc.
+  widthMm?: number; // alias
+  color: string; // Hex color code: '#D1D5DB', '#000000', etc.
+  style: PhotoBorderStyle;
+}
+
+export const DEFAULT_PHOTO_BORDER: PhotoBorderSettings = {
+  enabled: true,
+  width: 0.5,
+  widthMm: 0.5,
+  color: '#000000', // Crisp studio passport cutting border as seen on studio sheets
+  style: 'solid',
+};
+
 // ============================================================
 // Default Settings
 // ============================================================
 
 export const DEFAULT_PAPER_SETTINGS: PaperSettings = {
-  paperId: 'a4',
-  orientation: 'portrait',
-  marginTop: 5,
-  marginRight: 5,
-  marginBottom: 5,
-  marginLeft: 5,
-  horizontalGap: 3,
-  verticalGap: 3,
+  paperId: '4x6',
+  orientation: 'landscape',
+  marginTop: 4.8,
+  marginRight: 3.2,
+  marginBottom: 4.8,
+  marginLeft: 3.2,
+  horizontalGap: 2,
+  verticalGap: 2,
 };
+
+export function getDefaultPaperSettings(paperId: string): PaperSettings {
+  if (paperId === '4x6') {
+    return {
+      paperId: '4x6',
+      orientation: 'landscape', // 152.4 mm x 101.6 mm
+      marginTop: 4.8,
+      marginRight: 3.2,
+      marginBottom: 4.8,
+      marginLeft: 3.2,
+      horizontalGap: 2,
+      verticalGap: 2,
+    };
+  }
+
+  return {
+    paperId,
+    orientation: 'portrait',
+    marginTop: 5,
+    marginRight: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    horizontalGap: 3,
+    verticalGap: 3,
+  };
+}
 
 // ============================================================
 // Helpers
@@ -567,9 +611,9 @@ export function getEffectivePaperDimensions(
   orientation: 'portrait' | 'landscape'
 ): { width: number; height: number } {
   if (orientation === 'landscape') {
-    return { width: paper.height, height: paper.width };
+    return { width: Math.max(paper.width, paper.height), height: Math.min(paper.width, paper.height) };
   }
-  return { width: paper.width, height: paper.height };
+  return { width: Math.min(paper.width, paper.height), height: Math.max(paper.width, paper.height) };
 }
 
 /**

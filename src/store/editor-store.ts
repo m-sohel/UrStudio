@@ -10,8 +10,8 @@
 import { create } from 'zustand';
 import type { ImageInfo, CropData, AdjustmentSettings } from '@/lib/image-processing';
 import { DEFAULT_ADJUSTMENTS } from '@/lib/image-processing';
-import type { PaperSettings } from '@/lib/templates';
-import { DEFAULT_PAPER_SETTINGS } from '@/lib/templates';
+import type { PaperSettings, PhotoBorderSettings } from '@/lib/templates';
+import { DEFAULT_PAPER_SETTINGS, DEFAULT_PHOTO_BORDER, getDefaultPaperSettings, getPhotoTemplate } from '@/lib/templates';
 import type { LayoutResult } from '@/lib/layout-engine';
 import { type ColorCalibrationSettings, DEFAULT_COLOR_CALIBRATION } from '@/lib/color-management';
 
@@ -73,6 +73,9 @@ interface EditorState {
   copies: number;
   layoutResult: LayoutResult | null;
   
+  // Photo Border Settings
+  photoBorder: PhotoBorderSettings;
+  
   // ID Card
   idCardState: IDCardState;
   
@@ -104,6 +107,7 @@ interface EditorState {
   setRotation: (rotation: number) => void;
   setSelectedTemplate: (id: string | null, type: 'photo' | 'id-card') => void;
   setPaperSettings: (settings: Partial<PaperSettings>) => void;
+  setPhotoBorder: (border: Partial<PhotoBorderSettings>) => void;
   setCopies: (copies: number) => void;
   setLayoutResult: (result: LayoutResult | null) => void;
   setCroppedImageUrl: (url: string | null) => void;
@@ -131,6 +135,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   paperSettings: { ...DEFAULT_PAPER_SETTINGS },
   copies: 8,
   layoutResult: null,
+  photoBorder: { ...DEFAULT_PHOTO_BORDER },
   idCardState: {
     activeSide: 'front',
     arrangement: 'stacked',
@@ -164,10 +169,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   })),
   resetColorCalibration: () => set({ colorCalibration: { ...DEFAULT_COLOR_CALIBRATION } }),
   
-  addImages: (images) => set((state) => ({
-    images: [...state.images, ...images.map(img => ({ ...img, copies: img.copies || 4 }))],
-    selectedImageIndex: state.images.length === 0 ? 0 : state.selectedImageIndex,
-  })),
+  addImages: (images) => set((state) => {
+    const nextImages = [...state.images, ...images.map(img => ({ ...img, copies: img.copies || 4 }))];
+    return {
+      images: nextImages,
+      mixMatchMode: nextImages.length > 1 ? true : state.mixMatchMode,
+      selectedImageIndex: state.images.length === 0 ? 0 : state.selectedImageIndex,
+    };
+  }),
   
   removeImage: (index) => set((state) => {
     const newImages = state.images.filter((_, i) => i !== index);
@@ -177,6 +186,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
     return {
       images: newImages,
+      mixMatchMode: newImages.length > 1 ? state.mixMatchMode : false,
       selectedImageIndex: Math.min(state.selectedImageIndex, Math.max(0, newImages.length - 1)),
     };
   }),
@@ -203,13 +213,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   
   setRotation: (rotation) => set({ rotation }),
   
-  setSelectedTemplate: (id, type) => set({ 
-    selectedTemplateId: id, 
-    selectedTemplateType: type,
-  }),
+  setSelectedTemplate: (id, type) => {
+    if (!id) {
+      set({ selectedTemplateId: null, selectedTemplateType: type });
+      return;
+    }
+    if (type === 'photo') {
+      const tmpl = getPhotoTemplate(id);
+      if (tmpl?.defaultPaperId === '4x6') {
+        set({
+          selectedTemplateId: id,
+          selectedTemplateType: type,
+          paperSettings: getDefaultPaperSettings('4x6'),
+          copies: 8,
+        });
+        return;
+      }
+    }
+    set({ selectedTemplateId: id, selectedTemplateType: type });
+  },
   
   setPaperSettings: (settings) => set((state) => ({
     paperSettings: { ...state.paperSettings, ...settings },
+  })),
+  
+  setPhotoBorder: (border) => set((state) => ({
+    photoBorder: { ...state.photoBorder, ...border },
   })),
   
   setCopies: (copies) => set({ copies: Math.max(1, copies) }),
@@ -328,6 +357,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         showCuttingMarks: true,
       },
       colorCalibration: { ...DEFAULT_COLOR_CALIBRATION },
+      photoBorder: { ...DEFAULT_PHOTO_BORDER },
     });
   },
 }));

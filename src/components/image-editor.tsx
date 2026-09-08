@@ -8,7 +8,7 @@ import {
   Sun, Contrast, Palette, RotateCcwIcon, Check, X,
   Printer, Sparkles, Sliders, ShieldAlert, Eye,
   UserCheck, ScanFace, Paintbrush, Wand2, RefreshCw, AlertCircle,
-  Upload, FileCheck2
+  Upload, FileCheck2, Users
 } from 'lucide-react';
 import { DigitalFormExportDialog } from '@/components/digital-form-export-dialog';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,7 @@ const BG_COLOR_PRESETS = [
 export function ImageEditor() {
   const cropperRef = useRef<ReactCropperElement>(null);
   const {
-    images, selectedImageIndex, selectedTemplateId, selectedTemplateType,
+    images, selectedImageIndex, selectImage, selectedTemplateId, selectedTemplateType,
     adjustments, setAdjustments, setCropData, setCroppedImageUrl,
     pushUndo, resetAdjustments, setStep,
     colorCalibration, setColorCalibration, resetColorCalibration,
@@ -94,8 +94,11 @@ export function ImageEditor() {
   useEffect(() => {
     if (selectedImage) {
       setActiveImageUrl(selectedImage.objectUrl);
+      if (cropperRef.current?.cropper) {
+        cropperRef.current.cropper.replace(selectedImage.objectUrl);
+      }
     }
-  }, [selectedImage]);
+  }, [selectedImage?.id, selectedImageIndex]);
 
   // Get active template
   const activeTemplate = selectedTemplateId
@@ -259,7 +262,7 @@ export function ImageEditor() {
     setTimeout(() => setBiometricFeedback(null), 2500);
   };
 
-  const handleCrop = useCallback(async () => {
+  const handleCrop = useCallback(async (andNext: boolean = false) => {
     const cropper = cropperRef.current?.cropper;
     if (!cropper) return;
 
@@ -352,10 +355,17 @@ export function ImageEditor() {
 
     setCroppedImageUrl(dataUrl);
     pushUndo();
-    setStep('layout');
+
+    if (andNext && selectedImageIndex < images.length - 1) {
+      selectImage(selectedImageIndex + 1);
+      setBiometricFeedback(`Person ${selectedImageIndex + 1} cropped! Ready to crop Person ${selectedImageIndex + 2}.`);
+      setTimeout(() => setBiometricFeedback(null), 3000);
+    } else {
+      setStep('layout');
+    }
   }, [
     selectedTemplateId, selectedTemplateType, adjustments, colorCalibration,
-    setCropData, setCroppedImageUrl, pushUndo, setStep
+    setCropData, setCroppedImageUrl, pushUndo, setStep, selectedImageIndex, images.length, selectImage
   ]);
 
   // Keyboard shortcut listener for micro-nudging and quick crop
@@ -390,7 +400,7 @@ export function ImageEditor() {
           break;
         case 'Enter':
           e.preventDefault();
-          handleCrop();
+          handleCrop(false);
           break;
         case 'Escape':
           e.preventDefault();
@@ -549,11 +559,73 @@ export function ImageEditor() {
           <FileCheck2 className="w-3.5 h-3.5" />
           <span>Govt Form</span>
         </Button>
-        <Button size="sm" onClick={handleCrop} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium h-7 px-3">
-          <Check className="w-3.5 h-3.5 mr-1" />
-          Apply Crop
-        </Button>
+        {images.length > 1 && selectedImageIndex < images.length - 1 ? (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleCrop(true)}
+              className="text-xs h-7 border-primary/50 text-primary hover:bg-primary/10 gap-1 font-semibold"
+              title="Save crop for this person and proceed to next person"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Crop Person #{selectedImageIndex + 2} →</span>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleCrop(false)}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium h-7 px-3"
+            >
+              Finish & Layout
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" onClick={() => handleCrop(false)} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm text-xs font-medium h-7 px-3">
+            <Check className="w-3.5 h-3.5 mr-1" />
+            Apply Crop
+          </Button>
+        )}
       </div>
+
+      {/* Multi-Person Queue Switcher Bar */}
+      {images.length > 1 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/70 border-b border-border text-xs overflow-x-auto">
+          <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 shrink-0">
+            <Users className="w-3.5 h-3.5 text-primary" /> People Queue ({images.length}):
+          </span>
+          <div className="flex items-center gap-1.5 flex-nowrap">
+            {images.map((img, idx) => {
+              const isSelected = idx === selectedImageIndex;
+              const isCropped = !!img.croppedImageUrl;
+
+              return (
+                <button
+                  key={img.id}
+                  type="button"
+                  onClick={() => selectImage(idx)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border transition-all cursor-pointer shrink-0 ${
+                    isSelected
+                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                      : 'bg-background hover:bg-muted text-foreground border-border'
+                  }`}
+                >
+                  <img
+                    src={img.croppedImageUrl || img.thumbnailUrl || img.objectUrl}
+                    alt={img.name}
+                    className="w-4 h-4 rounded-full object-cover shrink-0"
+                  />
+                  <span className="truncate max-w-[100px]">#{idx + 1} {img.name.replace(/\.[^/.]+$/, '')}</span>
+                  {isCropped ? (
+                    <span className="text-[9px] text-emerald-400 font-bold ml-0.5" title="Cropped">✓</span>
+                  ) : (
+                    <span className="text-[9px] opacity-60 ml-0.5" title="Pending crop">•</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Biometric Feedback Banner */}
       {biometricFeedback && (

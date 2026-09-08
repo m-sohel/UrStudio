@@ -106,7 +106,7 @@ test('Layout Engine: Passport photos (35x45mm) on A4 paper (210x297mm)', () => {
   }
 });
 
-test('Layout Engine: Passport photos on 4x6 inch paper (101.6x152.4mm)', () => {
+test('Layout Engine: Passport photos on 4x6 inch paper (101.6x152.4mm) portrait', () => {
   const layout = calculateLayout({
     paperWidth: 101.6,
     paperHeight: 152.4,
@@ -123,6 +123,35 @@ test('Layout Engine: Passport photos on 4x6 inch paper (101.6x152.4mm)', () => {
 
   assert.equal(layout.totalItems, 6, 'Physical limit of 4x6 in portrait is 6 photos without overflow');
   assert.equal(layout.positions.length, 6);
+});
+
+test('Layout Engine: 8 Passport photos on 4x6 inch paper (152.4x101.6mm) horizontal landscape', () => {
+  const layout = calculateLayout({
+    paperWidth: 152.4,
+    paperHeight: 101.6,
+    itemWidth: 35,
+    itemHeight: 45,
+    marginTop: 4.8,
+    marginRight: 3.2,
+    marginBottom: 4.8,
+    marginLeft: 3.2,
+    horizontalGap: 2,
+    verticalGap: 2,
+    maxCopies: 8,
+  });
+
+  assert.equal(layout.columns, 4, 'Must have exactly 4 columns horizontally');
+  assert.equal(layout.rows, 2, 'Must have exactly 2 rows vertically');
+  assert.equal(layout.totalItems, 8, 'Must have exactly 8 passport photos per 4x6 sheet');
+  assert.equal(layout.positions.length, 8);
+
+  // Verify none of the 8 photos overflow the 4x6 paper
+  for (const pos of layout.positions) {
+    assert.ok(pos.x >= 0, `x position ${pos.x} is off paper`);
+    assert.ok(pos.x + pos.width <= 152.4 + 0.1, `photo overflows 152.4mm width`);
+    assert.ok(pos.y >= 0, `y position ${pos.y} is off paper`);
+    assert.ok(pos.y + pos.height <= 101.6 + 0.1, `photo overflows 101.6mm height`);
+  }
 });
 
 test('Layout Engine: Overflow prevention when item is larger than paper', () => {
@@ -399,6 +428,61 @@ test('Print Engine: generateIDCardPrintHTML renders bleed and crop marks on shee
 
   assert.ok(html.includes('card-cell-wrapper'), 'Contains card cell wrapper for bleed');
   assert.ok(html.includes('crop-mark tl'), 'Contains corner crop mark');
+});
+
+test('Templates: getDefaultPaperSettings for 4x6 defaults to horizontal landscape for 8 photos', () => {
+  const { getDefaultPaperSettings, DEFAULT_PHOTO_BORDER } = require('../templates');
+  const settings = getDefaultPaperSettings('4x6');
+  assert.equal(settings.orientation, 'landscape');
+  assert.equal(settings.horizontalGap, 2);
+  assert.equal(settings.verticalGap, 2);
+  assert.equal(settings.marginLeft, 3.2);
+  assert.equal(settings.marginRight, 3.2);
+
+  assert.equal(DEFAULT_PHOTO_BORDER.enabled, true);
+  assert.equal(DEFAULT_PHOTO_BORDER.width, 0.5);
+  assert.equal(DEFAULT_PHOTO_BORDER.style, 'solid');
+  assert.equal(DEFAULT_PHOTO_BORDER.color, '#000000');
+});
+
+test('Print Engine: generatePrintHTML generates passport cutting border when photoBorder is configured', () => {
+  const html = generatePrintHTML({
+    paperWidth: 152.4,
+    paperHeight: 101.6,
+    orientation: 'landscape',
+    positions: [{ x: 3.2, y: 4.8, width: 35, height: 45, row: 0, col: 0 }],
+    imageUrl: 'data:image/jpeg;base64,sample',
+    itemWidth: 35,
+    itemHeight: 45,
+    photoBorder: {
+      enabled: true,
+      width: 0.5,
+      style: 'solid',
+      color: '#000000',
+    },
+  });
+
+  assert.ok(html.includes('border: 0.5mm solid #000000; box-sizing: border-box;'), 'Contains CSS border style for photo');
+});
+
+test('Print Engine: generatePrintHTML supports dashed and double photo border styles', () => {
+  const html = generatePrintHTML({
+    paperWidth: 152.4,
+    paperHeight: 101.6,
+    orientation: 'landscape',
+    positions: [{ x: 3.2, y: 4.8, width: 35, height: 45, row: 0, col: 0 }],
+    imageUrl: 'data:image/jpeg;base64,sample',
+    itemWidth: 35,
+    itemHeight: 45,
+    photoBorder: {
+      enabled: true,
+      width: 1.0,
+      style: 'dashed',
+      color: '#E05A47',
+    },
+  });
+
+  assert.ok(html.includes('border: 1mm dashed #E05A47; box-sizing: border-box;'), 'Contains custom dashed border');
 });
 
 

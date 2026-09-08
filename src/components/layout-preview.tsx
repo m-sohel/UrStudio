@@ -25,6 +25,7 @@ export function LayoutPreview() {
     paperSettings,
     selectedTemplateId,
     selectedTemplateType,
+    photoBorder,
     mixMatchMode,
     setMixMatchMode,
     setImageCopies,
@@ -32,8 +33,6 @@ export function LayoutPreview() {
     setSlotOverride,
     resetSlotOverrides,
   } = useEditorStore();
-
-  const { isPro, openUpgradeModal } = useLicenseStore();
 
   const paper = getPaperSize(paperSettings.paperId);
 
@@ -113,10 +112,6 @@ export function LayoutPreview() {
   const paperH = dims.height * scale;
 
   const handleMixMatchToggle = (checked: boolean) => {
-    if (checked && !isPro) {
-      openUpgradeModal('Multi-Customer Mix & Match sheets');
-      return;
-    }
     setMixMatchMode(checked);
   };
 
@@ -128,16 +123,11 @@ export function LayoutPreview() {
           <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-primary" />
-              <Label
-                onClick={() => { if (!isPro) openUpgradeModal('Multi-Customer Mix & Match sheets'); }}
-                className="text-xs font-semibold cursor-pointer flex items-center gap-1.5"
-              >
+              <Label className="text-xs font-semibold cursor-pointer flex items-center gap-1.5">
                 <span>Multi-Customer Mix & Match Sheet</span>
-                {!isPro && (
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/10 text-amber-500 border-amber-500/30 font-bold gap-0.5">
-                    <Crown className="w-2.5 h-2.5" /> PRO
-                  </Badge>
-                )}
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/30 font-semibold">
+                  Multi-Person
+                </Badge>
               </Label>
               <Switch
                 checked={mixMatchMode}
@@ -226,42 +216,52 @@ export function LayoutPreview() {
         }}
       >
         {/* Photo cells */}
-        {mappedSlots.map((slot, i) => (
-          <div
-            key={i}
-            onClick={() => handleCycleSlot(i)}
-            className={`absolute overflow-hidden border border-gray-300/60 transition-all ${
-              mixMatchMode ? 'cursor-pointer hover:ring-2 hover:ring-primary/60' : ''
-            }`}
-            style={{
-              left: `${slot.position.x * scale}px`,
-              top: `${slot.position.y * scale}px`,
-              width: `${slot.position.width * scale}px`,
-              height: `${slot.position.height * scale}px`,
-            }}
-            title={mixMatchMode ? `Slot ${i + 1}: ${slot.imageName} (Click to swap customer)` : `Copy ${i + 1}`}
-          >
-            {slot.imageUrl ? (
-              <div className="w-full h-full relative">
-                <img
-                  src={slot.imageUrl}
-                  alt={`Copy ${i + 1}`}
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
-                {mixMatchMode && (
-                  <span className="absolute top-0.5 left-0.5 bg-black/75 text-white text-[8px] font-bold px-1 rounded shadow-xs">
-                    #{slot.customerIndex + 1}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                <span className="text-[8px] text-gray-400">{i + 1}</span>
-              </div>
-            )}
-          </div>
-        ))}
+        {mappedSlots.map((slot, i) => {
+          const hasBorder = photoBorder?.enabled && photoBorder.style !== 'none';
+          const borderWidthPx = hasBorder ? Math.max(1, Math.round(photoBorder.width * scale)) : 0;
+          const borderCss = hasBorder
+            ? `${borderWidthPx}px ${photoBorder.style} ${photoBorder.color}`
+            : '1px solid rgba(209, 213, 219, 0.6)';
+
+          return (
+            <div
+              key={i}
+              onClick={() => handleCycleSlot(i)}
+              className={`absolute overflow-hidden transition-all ${
+                mixMatchMode ? 'cursor-pointer hover:ring-2 hover:ring-primary/60' : ''
+              }`}
+              style={{
+                left: `${slot.position.x * scale}px`,
+                top: `${slot.position.y * scale}px`,
+                width: `${slot.position.width * scale}px`,
+                height: `${slot.position.height * scale}px`,
+                border: borderCss,
+                boxSizing: 'border-box',
+              }}
+              title={mixMatchMode ? `Slot ${i + 1}: ${slot.imageName} (Click to swap customer)` : `Copy ${i + 1}`}
+            >
+              {slot.imageUrl ? (
+                <div className="w-full h-full relative">
+                  <img
+                    src={slot.imageUrl}
+                    alt={`Copy ${i + 1}`}
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
+                  {mixMatchMode && (
+                    <span className="absolute top-0.5 left-0.5 bg-black/75 text-white text-[8px] font-bold px-1 rounded shadow-xs">
+                      #{slot.customerIndex + 1}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                  <span className="text-[8px] text-gray-400">{i + 1}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Dimension labels */}
         <div className="absolute -bottom-6 left-0 right-0 text-center text-[10px] text-muted-foreground">

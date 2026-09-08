@@ -27,6 +27,7 @@ export function PrintPreview() {
     paperSettings,
     selectedTemplateId,
     selectedTemplateType,
+    photoBorder,
     setStep,
     colorCalibration,
     setColorCalibration,
@@ -93,6 +94,7 @@ export function PrintPreview() {
       slots: mixMatchMode ? slotsPayload : undefined,
       itemWidth: template.width,
       itemHeight: template.height,
+      photoBorder,
       showCuttingMarks: true,
       bleedMm: settings.defaultBleedMm,
       showCropMarks: settings.showCropMarks,
@@ -113,7 +115,7 @@ export function PrintPreview() {
         reset();
       }, 500);
     }
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems, reset, isPro, shopBranding, tier, consumeSinglePass]);
+  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, photoBorder, settings, mappedSlots, mixMatchMode, customerItems, reset, isPro, shopBranding, tier, consumeSinglePass]);
 
   const handleSavePDF = useCallback(async () => {
     if (!paper || !layoutResult || !template) return;
@@ -131,6 +133,7 @@ export function PrintPreview() {
         slots: mixMatchMode ? slotsPayload : undefined,
         itemWidth: template.width,
         itemHeight: template.height,
+        photoBorder,
         showCuttingMarks: true,
         bleedMm: settings.defaultBleedMm,
         showCropMarks: settings.showCropMarks,
@@ -310,39 +313,49 @@ export function PrintPreview() {
             border: colorCalibration.cmykSoftProof ? '1px solid #e0dbd1' : '1px solid #e5e7eb',
           }}
         >
-          {mappedSlots.map((slot, i) => (
-            <div
-              key={i}
-              className="absolute overflow-hidden border border-dashed border-gray-400/40"
-              style={{
-                left: `${slot.position.x * scale}px`,
-                top: `${slot.position.y * scale}px`,
-                width: `${slot.position.width * scale}px`,
-                height: `${slot.position.height * scale}px`,
-                filter: colorCalibration.cmykSoftProof ? 'contrast(0.97) saturate(0.96)' : 'none',
-              }}
-            >
-              {slot.imageUrl ? (
-                <div className="w-full h-full relative">
-                  <img
-                    src={slot.imageUrl}
-                    alt={`Copy ${i + 1}`}
-                    className="w-full h-full object-cover"
-                    draggable={false}
-                  />
-                  {mixMatchMode && (
-                    <span className="absolute top-1 left-1 bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                      #{slot.customerIndex + 1}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="w-full h-full bg-gray-100 border border-gray-200 flex items-center justify-center">
-                  <span className="text-xs text-gray-400">{i + 1}</span>
-                </div>
-              )}
-            </div>
-          ))}
+          {mappedSlots.map((slot, i) => {
+            const hasBorder = photoBorder?.enabled && photoBorder.style !== 'none';
+            const borderWidthPx = hasBorder ? Math.max(1, Math.round(photoBorder.width * scale)) : 0;
+            const borderCss = hasBorder
+              ? `${borderWidthPx}px ${photoBorder.style} ${photoBorder.color}`
+              : '1px dashed rgba(156, 163, 175, 0.4)';
+
+            return (
+              <div
+                key={i}
+                className="absolute overflow-hidden"
+                style={{
+                  left: `${slot.position.x * scale}px`,
+                  top: `${slot.position.y * scale}px`,
+                  width: `${slot.position.width * scale}px`,
+                  height: `${slot.position.height * scale}px`,
+                  border: borderCss,
+                  boxSizing: 'border-box',
+                  filter: colorCalibration.cmykSoftProof ? 'contrast(0.97) saturate(0.96)' : 'none',
+                }}
+              >
+                {slot.imageUrl ? (
+                  <div className="w-full h-full relative">
+                    <img
+                      src={slot.imageUrl}
+                      alt={`Copy ${i + 1}`}
+                      className="w-full h-full object-cover"
+                      draggable={false}
+                    />
+                    {mixMatchMode && (
+                      <span className="absolute top-1 left-1 bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                        #{slot.customerIndex + 1}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-gray-100 border border-gray-200 flex items-center justify-center">
+                    <span className="text-xs text-gray-400">{i + 1}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* Live Watermark / Custom Shop Branding Footer Preview on Paper */}
           {!isPro ? (

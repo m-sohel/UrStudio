@@ -25,6 +25,8 @@ export interface BasePDFConfig {
   watermark?: WatermarkPrintConfig;
 }
 
+import type { PhotoBorderSettings } from './templates';
+
 export interface PhotoSheetPDFConfig extends BasePDFConfig {
   positions: LayoutPosition[];
   imageUrl?: string;
@@ -32,6 +34,7 @@ export interface PhotoSheetPDFConfig extends BasePDFConfig {
   slots?: { position: LayoutPosition; imageUrl: string }[];
   itemWidth: number;
   itemHeight: number;
+  photoBorder?: PhotoBorderSettings;
 }
 
 export interface IDCardSheetPDFConfig extends BasePDFConfig {
@@ -49,6 +52,24 @@ export interface PVCCardPDFConfig {
   frontImageUrl: string;
   backImageUrl?: string;
   filename?: string;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    return {
+      r: parseInt(clean[0] + clean[0], 16),
+      g: parseInt(clean[1] + clean[1], 16),
+      b: parseInt(clean[2] + clean[2], 16),
+    };
+  }
+  const num = parseInt(clean, 16);
+  if (isNaN(num)) return { r: 180, g: 180, b: 180 };
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255,
+  };
 }
 
 /**
@@ -182,8 +203,30 @@ export async function exportPhotoLayoutToPDF(config: PhotoSheetPDFConfig): Promi
     // Render photo
     doc.addImage(cellImg, 'JPEG', renderX, renderY, renderW, renderH, undefined, 'FAST');
 
-    // Cutting border
-    if (showCuttingMarks) {
+    // Photo border (Passport photo cutting/framing line)
+    if (config.photoBorder?.enabled && config.photoBorder.style !== 'none') {
+      const b = config.photoBorder;
+      const borderW = b.width ?? b.widthMm ?? 0.5;
+      const rgb = hexToRgb(b.color);
+      doc.setDrawColor(rgb.r, rgb.g, rgb.b);
+      doc.setLineWidth(borderW);
+
+      if (b.style === 'dashed') {
+        doc.setLineDashPattern([2, 1], 0);
+      } else if (b.style === 'dotted') {
+        doc.setLineDashPattern([0.5, 0.5], 0);
+      } else {
+        doc.setLineDashPattern([], 0);
+      }
+
+      doc.rect(pos.x, pos.y, itemWidth, itemHeight);
+
+      if (b.style === 'double') {
+        const offset = Math.max(0.3, borderW * 0.8);
+        doc.rect(pos.x + offset, pos.y + offset, itemWidth - offset * 2, itemHeight - offset * 2);
+      }
+    } else if (showCuttingMarks) {
+      // Fallback subtle cutting border
       doc.setDrawColor(160, 160, 160);
       doc.setLineWidth(0.15);
       doc.setLineDashPattern([1.5, 1], 0);

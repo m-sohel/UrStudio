@@ -86,9 +86,38 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   const effectiveItemWidth = isRotated ? itemHeight : itemWidth;
   const effectiveItemHeight = isRotated ? itemWidth : itemHeight;
 
+  // Studio-standard calibration for 4x6 inch paper (152.4 x 101.6 mm landscape) with standard ~35x45mm passport photos:
+  // Automatically fit exactly 4 columns x 2 rows = 8 photos horizontally without clipping
+  let effMarginLeft = marginLeft;
+  let effMarginRight = marginRight;
+  let effMarginTop = marginTop;
+  let effMarginBottom = marginBottom;
+  let effHGap = horizontalGap;
+  let effVGap = verticalGap;
+
+  const is4x6Landscape = Math.abs(paperWidth - 152.4) < 1.0 && Math.abs(paperHeight - 101.6) < 1.0;
+  const is35x45Passport = Math.abs(effectiveItemWidth - 35) < 1.5 && Math.abs(effectiveItemHeight - 45) < 1.5;
+
+  if (is4x6Landscape && is35x45Passport) {
+    if (effHGap > 2) effHGap = 2;
+    if (effVGap > 2) effVGap = 2;
+    const requiredW = 4 * effectiveItemWidth + 3 * effHGap; // 146mm
+    if (paperWidth - effMarginLeft - effMarginRight < requiredW) {
+      const remainingX = Math.max(1, (paperWidth - requiredW) / 2);
+      effMarginLeft = remainingX;
+      effMarginRight = remainingX;
+    }
+    const requiredH = 2 * effectiveItemHeight + 1 * effVGap; // 92mm
+    if (paperHeight - effMarginTop - effMarginBottom < requiredH) {
+      const remainingY = Math.max(1, (paperHeight - requiredH) / 2);
+      effMarginTop = remainingY;
+      effMarginBottom = remainingY;
+    }
+  }
+
   // Available area after margins
-  const availableWidth = paperWidth - marginLeft - marginRight;
-  const availableHeight = paperHeight - marginTop - marginBottom;
+  const availableWidth = paperWidth - effMarginLeft - effMarginRight;
+  const availableHeight = paperHeight - effMarginTop - effMarginBottom;
 
   // Cannot fit anything
   if (availableWidth < effectiveItemWidth || availableHeight < effectiveItemHeight) {
@@ -108,13 +137,18 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
 
   // Calculate how many columns and rows fit
   // First item takes full width, subsequent items need gap + width
-  const columns = Math.floor(
-    (availableWidth - effectiveItemWidth) / (effectiveItemWidth + horizontalGap)
+  let columns = Math.floor(
+    (availableWidth - effectiveItemWidth + 0.1) / (effectiveItemWidth + effHGap)
   ) + 1;
 
-  const rows = Math.floor(
-    (availableHeight - effectiveItemHeight) / (effectiveItemHeight + verticalGap)
+  let rows = Math.floor(
+    (availableHeight - effectiveItemHeight + 0.1) / (effectiveItemHeight + effVGap)
   ) + 1;
+
+  if (is4x6Landscape && is35x45Passport) {
+    columns = Math.max(4, columns);
+    rows = Math.max(2, rows);
+  }
 
   // Calculate positions
   const positions: LayoutPosition[] = [];
@@ -122,19 +156,19 @@ export function calculateLayout(input: LayoutInput): LayoutResult {
   const totalItems = maxCopies > 0 ? Math.min(maxCopies, totalPossible) : totalPossible;
 
   // Calculate total content dimensions for centering
-  const totalContentWidth = columns * effectiveItemWidth + (columns - 1) * horizontalGap;
-  const totalContentHeight = rows * effectiveItemHeight + (rows - 1) * verticalGap;
+  const totalContentWidth = columns * effectiveItemWidth + (columns - 1) * effHGap;
+  const totalContentHeight = rows * effectiveItemHeight + (rows - 1) * effVGap;
 
   // Center the grid within the available area
-  const offsetX = marginLeft + (availableWidth - totalContentWidth) / 2;
-  const offsetY = marginTop + (availableHeight - totalContentHeight) / 2;
+  const offsetX = effMarginLeft + (availableWidth - totalContentWidth) / 2;
+  const offsetY = effMarginTop + (availableHeight - totalContentHeight) / 2;
 
   let count = 0;
   for (let row = 0; row < rows && count < totalItems; row++) {
     for (let col = 0; col < columns && count < totalItems; col++) {
       positions.push({
-        x: offsetX + col * (effectiveItemWidth + horizontalGap),
-        y: offsetY + row * (effectiveItemHeight + verticalGap),
+        x: offsetX + col * (effectiveItemWidth + effHGap),
+        y: offsetY + row * (effectiveItemHeight + effVGap),
         width: effectiveItemWidth,
         height: effectiveItemHeight,
         row,
