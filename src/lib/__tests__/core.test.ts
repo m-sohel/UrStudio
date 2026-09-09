@@ -14,7 +14,8 @@ import {
   PHOTO_TEMPLATES, ID_CARD_TEMPLATES, PAPER_SIZES,
   getPhotoTemplate, getIDCardTemplate, getPaperSize,
   getEffectivePaperDimensions, createCustomPhotoTemplate,
-  createCustomIDCardTemplate, formatTemplateDimensions
+  createCustomIDCardTemplate, formatTemplateDimensions,
+  getDefaultPaperSettings, DEFAULT_PHOTO_BORDER
 } from '../templates';
 
 import {
@@ -493,7 +494,6 @@ test('Print Engine: generateIDCardPrintHTML renders bleed and crop marks on shee
 });
 
 test('Templates: getDefaultPaperSettings for 4x6 defaults to horizontal landscape for 8 photos', () => {
-  const { getDefaultPaperSettings, DEFAULT_PHOTO_BORDER } = require('../templates');
   const settings = getDefaultPaperSettings('4x6');
   assert.equal(settings.orientation, 'landscape');
   assert.equal(settings.horizontalGap, 2);

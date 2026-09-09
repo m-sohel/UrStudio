@@ -130,7 +130,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   cropData: null,
   adjustments: { ...DEFAULT_ADJUSTMENTS },
   rotation: 0,
-  selectedTemplateId: null,
+  selectedTemplateId: 'passport-photo-india',
   selectedTemplateType: 'photo',
   paperSettings: { ...DEFAULT_PAPER_SETTINGS },
   copies: 8,
@@ -179,19 +179,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   }),
   
   removeImage: (index) => set((state) => {
-    const newImages = state.images.filter((_, i) => i !== index);
-    // Revoke object URL to free memory
-    if (state.images[index]) {
-      URL.revokeObjectURL(state.images[index].objectUrl);
+    const target = state.images[index];
+    if (target) {
+      if (target.objectUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(target.objectUrl);
+      }
+      if (target.croppedImageUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(target.croppedImageUrl);
+      }
     }
+    const newImages = state.images.filter((_, i) => i !== index);
+    const newSelectedIndex = Math.min(state.selectedImageIndex, Math.max(0, newImages.length - 1));
+    const newSelected = newImages[newSelectedIndex];
+
     return {
       images: newImages,
       mixMatchMode: newImages.length > 1 ? state.mixMatchMode : false,
-      selectedImageIndex: Math.min(state.selectedImageIndex, Math.max(0, newImages.length - 1)),
+      selectedImageIndex: newSelectedIndex,
+      cropData: newSelected?.cropData || null,
+      croppedImageUrl: newSelected?.croppedImageUrl || null,
     };
   }),
   
-  selectImage: (index) => set({ selectedImageIndex: index }),
+  selectImage: (index) => set((state) => {
+    const target = state.images[index];
+    return {
+      selectedImageIndex: index,
+      cropData: target?.cropData || null,
+      croppedImageUrl: target?.croppedImageUrl || null,
+    };
+  }),
   
   duplicateImage: (index) => set((state) => {
     const img = state.images[index];
@@ -346,7 +363,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       cropData: null,
       adjustments: { ...DEFAULT_ADJUSTMENTS },
       rotation: 0,
-      selectedTemplateId: null,
+      selectedTemplateId: 'passport-photo-india',
+      selectedTemplateType: 'photo',
       layoutResult: null,
       croppedImageUrl: null,
       undoStack: [],

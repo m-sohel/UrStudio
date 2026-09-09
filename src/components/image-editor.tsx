@@ -111,6 +111,14 @@ export function ImageEditor() {
     return activeTemplate ? activeTemplate.aspectRatio : NaN;
   }, [selectedTemplateId, activeTemplate]);
 
+  // Keep cropper aspect ratio synchronized when template changes
+  useEffect(() => {
+    const cropper = cropperRef.current?.cropper;
+    if (cropper) {
+      cropper.setAspectRatio(getAspectRatio());
+    }
+  }, [selectedTemplateId, getAspectRatio]);
+
   // 1. Biometric Face Centering (Smart Crop)
   const handleBiometricCenterFace = async () => {
     const cropper = cropperRef.current?.cropper;
@@ -643,6 +651,7 @@ export function ImageEditor() {
       {/* Cropper Canvas with Biometric Guide Overlays */}
       <div className="flex-1 bg-black/60 relative overflow-hidden flex items-center justify-center">
         <Cropper
+          key={`${selectedImage?.id}-${selectedTemplateId}`}
           ref={cropperRef}
           src={activeImageUrl || selectedImage.objectUrl}
           style={{ height: '100%', width: '100%' }}

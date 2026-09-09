@@ -12,7 +12,7 @@ import {
   getPaperSize, getEffectivePaperDimensions,
   getPhotoTemplate, getIDCardTemplate,
 } from '@/lib/templates';
-import { mapMultiCustomerSlots, type MultiCustomerPhotoItem } from '@/lib/layout-engine';
+import { mapMultiCustomerSlots, type MultiCustomerPhotoItem, calculateLayout } from '@/lib/layout-engine';
 import { generatePrintHTML, printViaIframe, PRINT_INSTRUCTIONS } from '@/lib/print';
 import { exportPhotoLayoutToPDF } from '@/lib/pdf-exporter';
 import { useSettingsStore } from '@/store/settings-store';
@@ -33,6 +33,7 @@ export function PrintPreview() {
     setColorCalibration,
     mixMatchMode,
     slotOverrides,
+    copies,
     reset,
   } = useEditorStore();
 
@@ -51,6 +52,26 @@ export function PrintPreview() {
       : getIDCardTemplate(selectedTemplateId);
   }, [selectedTemplateId, selectedTemplateType]);
 
+  // Ensure layout is derived if not previously cached by paper-selector
+  const effectiveLayout = useMemo(() => {
+    if (layoutResult) return layoutResult;
+    if (!paper || !template) return null;
+    const dims = getEffectivePaperDimensions(paper, paperSettings.orientation);
+    return calculateLayout({
+      paperWidth: dims.width,
+      paperHeight: dims.height,
+      itemWidth: template.width,
+      itemHeight: template.height,
+      marginTop: paperSettings.marginTop,
+      marginRight: paperSettings.marginRight,
+      marginBottom: paperSettings.marginBottom,
+      marginLeft: paperSettings.marginLeft,
+      horizontalGap: paperSettings.horizontalGap,
+      verticalGap: paperSettings.verticalGap,
+      maxCopies: copies,
+    });
+  }, [layoutResult, paper, template, paperSettings, copies]);
+
   // Candidates for multi-customer sheet
   const customerItems: MultiCustomerPhotoItem[] = useMemo(() => {
     return images
@@ -65,9 +86,9 @@ export function PrintPreview() {
 
   // Compute multi-customer mapped slots
   const mappedSlots = useMemo(() => {
-    if (!layoutResult || customerItems.length === 0) return [];
+    if (!effectiveLayout || customerItems.length === 0) return [];
     if (!mixMatchMode || customerItems.length <= 1) {
-      return layoutResult.positions.map((pos, idx) => ({
+      return effectiveLayout.positions.map((pos, idx) => ({
         position: pos,
         slotIndex: idx,
         imageId: customerItems[0]?.id || 'default',
@@ -76,11 +97,11 @@ export function PrintPreview() {
         customerIndex: 0,
       }));
     }
-    return mapMultiCustomerSlots(layoutResult.positions, customerItems, slotOverrides);
-  }, [layoutResult, customerItems, mixMatchMode, croppedImageUrl, slotOverrides]);
+    return mapMultiCustomerSlots(effectiveLayout.positions, customerItems, slotOverrides);
+  }, [effectiveLayout, customerItems, mixMatchMode, croppedImageUrl, slotOverrides]);
 
   const handlePrint = useCallback(() => {
-    if (!paper || !layoutResult || !template) return;
+    if (!paper || !effectiveLayout || !template) return;
 
     const dims = getEffectivePaperDimensions(paper, paperSettings.orientation);
     const slotsPayload = mappedSlots.map((s) => ({ position: s.position, imageUrl: s.imageUrl }));
@@ -89,7 +110,7 @@ export function PrintPreview() {
       paperWidth: dims.width,
       paperHeight: dims.height,
       orientation: paperSettings.orientation,
-      positions: layoutResult.positions,
+      positions: effectiveLayout.positions,
       imageUrl: croppedImageUrl || customerItems[0]?.imageUrl || '',
       slots: mixMatchMode ? slotsPayload : undefined,
       itemWidth: template.width,
@@ -115,10 +136,10 @@ export function PrintPreview() {
         reset();
       }, 500);
     }
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, photoBorder, settings, mappedSlots, mixMatchMode, customerItems, reset, isPro, shopBranding, tier, consumeSinglePass]);
+  }, [paper, effectiveLayout, croppedImageUrl, paperSettings, template, photoBorder, settings, mappedSlots, mixMatchMode, customerItems, reset, isPro, shopBranding, tier, consumeSinglePass]);
 
   const handleSavePDF = useCallback(async () => {
-    if (!paper || !layoutResult || !template) return;
+    if (!paper || !effectiveLayout || !template) return;
 
     try {
       setIsExportingPdf(true);
@@ -128,7 +149,7 @@ export function PrintPreview() {
         paperWidth: paper.width,
         paperHeight: paper.height,
         orientation: paperSettings.orientation,
-        positions: layoutResult.positions,
+        positions: effectiveLayout.positions,
         imageUrl: croppedImageUrl || customerItems[0]?.imageUrl || '',
         slots: mixMatchMode ? slotsPayload : undefined,
         itemWidth: template.width,
@@ -153,12 +174,12 @@ export function PrintPreview() {
     } finally {
       setIsExportingPdf(false);
     }
-  }, [paper, layoutResult, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems, isPro, shopBranding, tier, consumeSinglePass]);
+  }, [paper, effectiveLayout, croppedImageUrl, paperSettings, template, settings, mappedSlots, mixMatchMode, customerItems, isPro, shopBranding, tier, consumeSinglePass]);
 
-  if (!paper || !layoutResult || !template) {
+  if (!paper || !effectiveLayout || !template) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        <p>Generate a layout first to see the print preview</p>
+        <p>Please select a template and upload/crop an image first</p>
       </div>
     );
   }
@@ -189,7 +210,7 @@ export function PrintPreview() {
             {template.width}×{template.height}mm
           </Badge>
           <Badge variant="secondary">
-            {layoutResult.totalItems} copies
+            {effectiveLayout.totalItems} copies
           </Badge>
           {mixMatchMode && (
             <Badge variant="outline" className="gap-1 border-primary/40 text-primary">

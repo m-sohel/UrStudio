@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { useEditorStore } from '@/store/editor-store';
 import { getPaperSize, getEffectivePaperDimensions, getPhotoTemplate, getIDCardTemplate } from '@/lib/templates';
-import { mapMultiCustomerSlots, type MultiCustomerPhotoItem } from '@/lib/layout-engine';
+import { mapMultiCustomerSlots, type MultiCustomerPhotoItem, calculateLayout } from '@/lib/layout-engine';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -32,6 +32,7 @@ export function LayoutPreview() {
     slotOverrides,
     setSlotOverride,
     resetSlotOverrides,
+    copies,
   } = useEditorStore();
 
   const paper = getPaperSize(paperSettings.paperId);
@@ -43,11 +44,31 @@ export function LayoutPreview() {
       : getIDCardTemplate(selectedTemplateId);
   }, [selectedTemplateId, selectedTemplateType]);
 
+  // Ensure layout is derived if not previously cached by paper-selector
+  const effectiveLayout = useMemo(() => {
+    if (layoutResult) return layoutResult;
+    if (!paper || !template) return null;
+    const dims = getEffectivePaperDimensions(paper, paperSettings.orientation);
+    return calculateLayout({
+      paperWidth: dims.width,
+      paperHeight: dims.height,
+      itemWidth: template.width,
+      itemHeight: template.height,
+      marginTop: paperSettings.marginTop,
+      marginRight: paperSettings.marginRight,
+      marginBottom: paperSettings.marginBottom,
+      marginLeft: paperSettings.marginLeft,
+      horizontalGap: paperSettings.horizontalGap,
+      verticalGap: paperSettings.verticalGap,
+      maxCopies: copies,
+    });
+  }, [layoutResult, paper, template, paperSettings, copies]);
+
   // Candidates for multi-customer sheet
   const customerItems: MultiCustomerPhotoItem[] = useMemo(() => {
     return images
       .filter((img) => img.croppedImageUrl || img.objectUrl)
-      .map((img, idx) => ({
+      .map((img) => ({
         id: img.id,
         name: img.name.replace(/\.[^/.]+$/, ''),
         imageUrl: img.croppedImageUrl || img.objectUrl,
@@ -57,9 +78,9 @@ export function LayoutPreview() {
 
   // Map slots if in mix-match mode and multiple customers exist
   const mappedSlots = useMemo(() => {
-    if (!layoutResult || customerItems.length === 0) return [];
+    if (!effectiveLayout || customerItems.length === 0) return [];
     if (!mixMatchMode || customerItems.length <= 1) {
-      return layoutResult.positions.map((pos, idx) => ({
+      return effectiveLayout.positions.map((pos, idx) => ({
         position: pos,
         slotIndex: idx,
         imageId: customerItems[0]?.id || 'default',
@@ -68,13 +89,13 @@ export function LayoutPreview() {
         customerIndex: 0,
       }));
     }
-    return mapMultiCustomerSlots(layoutResult.positions, customerItems, slotOverrides);
-  }, [layoutResult, customerItems, mixMatchMode, croppedImageUrl, slotOverrides]);
+    return mapMultiCustomerSlots(effectiveLayout.positions, customerItems, slotOverrides);
+  }, [effectiveLayout, customerItems, mixMatchMode, croppedImageUrl, slotOverrides]);
 
   // Distribute slots evenly across customers
   const handleDistributeEvenly = () => {
-    if (!layoutResult || customerItems.length === 0) return;
-    const totalSlots = layoutResult.totalItems;
+    if (!effectiveLayout || customerItems.length === 0) return;
+    const totalSlots = effectiveLayout.totalItems;
     const perCustomer = Math.max(1, Math.floor(totalSlots / customerItems.length));
     customerItems.forEach((c, idx) => {
       setImageCopies(idx, perCustomer);
@@ -91,7 +112,7 @@ export function LayoutPreview() {
     setSlotOverride(slotIdx, customerItems[nextIdx].id);
   };
 
-  if (!paper || !layoutResult || !template) {
+  if (!paper || !effectiveLayout || !template) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground p-4">
         <p className="text-sm text-center">
@@ -198,8 +219,8 @@ export function LayoutPreview() {
         <span>Paper: {paper.name}</span>
         <span>Orientation: {paperSettings.orientation}</span>
         <span>Photo: {template.width}×{template.height}mm</span>
-        <span>Copies: {layoutResult.totalItems}</span>
-        <span>Grid: {layoutResult.columns}×{layoutResult.rows}</span>
+        <span>Copies: {effectiveLayout.totalItems}</span>
+        <span>Grid: {effectiveLayout.columns}×{effectiveLayout.rows}</span>
         {mixMatchMode && (
           <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
             Mix & Match Active
@@ -263,7 +284,7 @@ export function LayoutPreview() {
           );
         })}
 
-        {layoutResult.totalItems === 0 && (
+        {effectiveLayout.totalItems === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
             <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1">
               Photo dimensions ({template.width}×{template.height}mm) exceed printable area ({dims.width}×{dims.height}mm)

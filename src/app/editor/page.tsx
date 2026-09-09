@@ -116,12 +116,14 @@ function EditorContent() {
         setMode('id-card');
         setSelectedTemplate(templateParam, 'id-card');
       }
+    } else if (!selectedTemplateId) {
+      setSelectedTemplate('passport-photo-india', 'photo');
     }
 
     if (actionParam === 'govt-form') {
       setIsFormExportOpen(true);
     }
-  }, [modeParam, templateParam, actionParam, setMode, setSelectedTemplate]);
+  }, [modeParam, templateParam, actionParam, setMode, setSelectedTemplate, selectedTemplateId]);
 
   // Keyboard shortcuts
   useEffect(() => {
